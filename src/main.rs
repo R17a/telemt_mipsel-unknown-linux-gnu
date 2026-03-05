@@ -182,7 +182,7 @@ fn format_uptime(total_secs: u64) -> String {
     const SECS_PER_HOUR: u64 = 60 * SECS_PER_MINUTE;
     const SECS_PER_DAY: u64 = 24 * SECS_PER_HOUR;
     const SECS_PER_MONTH: u64 = 30 * SECS_PER_DAY;
-    const SECS_PER_YEAR: u64 = 365 * SECS_PER_DAY;
+    const SECS_PER_YEAR: u64 = 12 * SECS_PER_MONTH;
 
     let mut remaining = total_secs;
     let years = remaining / SECS_PER_YEAR;
@@ -197,35 +197,35 @@ fn format_uptime(total_secs: u64) -> String {
     let seconds = remaining % SECS_PER_MINUTE;
 
     let mut parts = Vec::new();
-    if years > 0 {
+    if total_secs > SECS_PER_YEAR {
         parts.push(format!(
             "{} {}",
             years,
             unit_label(years, "year", "years")
         ));
     }
-    if total_secs >= SECS_PER_YEAR {
+    if total_secs > SECS_PER_MONTH {
         parts.push(format!(
             "{} {}",
             months,
             unit_label(months, "month", "months")
         ));
     }
-    if total_secs >= SECS_PER_MONTH {
+    if total_secs > SECS_PER_DAY {
         parts.push(format!(
             "{} {}",
             days,
             unit_label(days, "day", "days")
         ));
     }
-    if total_secs >= SECS_PER_DAY {
+    if total_secs > SECS_PER_HOUR {
         parts.push(format!(
             "{} {}",
             hours,
             unit_label(hours, "hour", "hours")
         ));
     }
-    if total_secs >= SECS_PER_HOUR {
+    if total_secs > SECS_PER_MINUTE {
         parts.push(format!(
             "{} {}",
             minutes,
@@ -1032,7 +1032,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     let initialized_secs = process_started_at.elapsed().as_secs();
     let second_suffix = if initialized_secs == 1 { "" } else { "s" };
-    info!("================= Telegram Startup =================");
+    info!("===================== Telegram Startup =====================");
     info!(
         "  DC/ME Initialized in {} second{}",
         initialized_secs, second_suffix
@@ -1593,9 +1593,10 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     match signal::ctrl_c().await {
         Ok(()) => {
+            let shutdown_started_at = Instant::now();
+            info!("Shutting down...");
             let uptime_secs = process_started_at.elapsed().as_secs();
             info!("Uptime: {}", format_uptime(uptime_secs));
-            info!("Shutting down...");
             if let Some(pool) = &me_pool {
                 match tokio::time::timeout(
                     Duration::from_secs(2),
@@ -1614,6 +1615,12 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
                     }
                 }
             }
+            let shutdown_secs = shutdown_started_at.elapsed().as_secs();
+            info!(
+                "Shutdown completed successfully in {} {}.",
+                shutdown_secs,
+                unit_label(shutdown_secs, "second", "seconds")
+            );
         }
         Err(e) => error!("Signal error: {}", e),
     }
