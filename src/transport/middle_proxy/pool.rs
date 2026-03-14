@@ -34,6 +34,7 @@ pub(super) struct RefillEndpointKey {
 pub struct MeWriter {
     pub id: u64,
     pub addr: SocketAddr,
+    pub source_ip: IpAddr,
     pub writer_dc: i32,
     pub generation: u64,
     pub contour: Arc<AtomicU8>,
@@ -638,9 +639,9 @@ impl MePool {
         }
     }
 
+    /// Translate the local ME address into the address material sent to the proxy.
     pub fn translate_our_addr(&self, addr: SocketAddr) -> SocketAddr {
-        let ip = self.translate_ip_for_nat(addr.ip());
-        SocketAddr::new(ip, addr.port())
+        self.translate_our_addr_with_reflection(addr, None)
     }
 
     pub fn registry(&self) -> &Arc<ConnRegistry> {

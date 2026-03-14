@@ -287,6 +287,7 @@ pub async fn run() -> std::result::Result<(), Box<dyn std::error::Error>> {
         .await;
     let probe = run_probe(
         &config.network,
+        &config.upstreams,
         config.general.middle_proxy_nat_probe,
         config.general.stun_nat_probe_concurrency,
     )
@@ -295,7 +296,11 @@ pub async fn run() -> std::result::Result<(), Box<dyn std::error::Error>> {
         probe.detected_ipv4.map(IpAddr::V4),
         probe.detected_ipv6.map(IpAddr::V6),
     ));
-    let decision = decide_network_capabilities(&config.network, &probe);
+    let decision = decide_network_capabilities(
+        &config.network,
+        &probe,
+        config.general.middle_proxy_nat_ip,
+    );
     log_probe_result(&probe, &decision);
     startup_tracker
         .complete_component(
