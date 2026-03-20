@@ -120,6 +120,37 @@ fn detect_client_type(data: &[u8]) -> &'static str {
     "unknown"
 }
 
+fn build_mask_proxy_header(
+    version: u8,
+    peer: SocketAddr,
+    local_addr: SocketAddr,
+) -> Option<Vec<u8>> {
+    match version {
+        0 => None,
+        2 => Some(
+            ProxyProtocolV2Builder::new()
+                .with_addrs(peer, local_addr)
+                .build(),
+        ),
+        _ => {
+            let header = match (peer, local_addr) {
+                (SocketAddr::V4(src), SocketAddr::V4(dst)) => {
+                    ProxyProtocolV1Builder::new()
+                        .tcp4(src.into(), dst.into())
+                        .build()
+                }
+                (SocketAddr::V6(src), SocketAddr::V6(dst)) => {
+                    ProxyProtocolV1Builder::new()
+                        .tcp6(src.into(), dst.into())
+                        .build()
+                }
+                _ => ProxyProtocolV1Builder::new().build(),
+            };
+            Some(header)
+        }
+    }
+}
+
 /// Handle a bad client by forwarding to mask host
 pub async fn handle_bad_client<R, W>(
     reader: R,
@@ -162,23 +193,8 @@ where
         match connect_result {
             Ok(Ok(stream)) => {
                 let (mask_read, mut mask_write) = stream.into_split();
-                let proxy_header: Option<Vec<u8>> = match config.censorship.mask_proxy_protocol {
-                    0 => None,
-                    version => {
-                        let header = match version {
-                            2 => ProxyProtocolV2Builder::new().with_addrs(peer, local_addr).build(),
-                            _ => match (peer, local_addr) {
-                                (SocketAddr::V4(src), SocketAddr::V4(dst)) =>
-                                    ProxyProtocolV1Builder::new().tcp4(src.into(), dst.into()).build(),
-                                (SocketAddr::V6(src), SocketAddr::V6(dst)) =>
-                                    ProxyProtocolV1Builder::new().tcp6(src.into(), dst.into()).build(),
-                                _ =>
-                                    ProxyProtocolV1Builder::new().build(),
-                            },
-                        };
-                        Some(header)
-                    }
-                };
+                let proxy_header =
+                    build_mask_proxy_header(config.censorship.mask_proxy_protocol, peer, local_addr);
                 if let Some(header) = proxy_header {
                     if !write_proxy_header_with_timeout(&mut mask_write, &header).await {
                         wait_mask_outcome_budget(outcome_started).await;
@@ -226,23 +242,8 @@ where
     let connect_result = timeout(MASK_TIMEOUT, TcpStream::connect(&mask_addr)).await;
     match connect_result {
         Ok(Ok(stream)) => {
-            let proxy_header: Option<Vec<u8>> = match config.censorship.mask_proxy_protocol {
-                0 => None,
-                version => {
-                    let header = match version {
-                        2 => ProxyProtocolV2Builder::new().with_addrs(peer, local_addr).build(),
-                        _ => match (peer, local_addr) {
-                            (SocketAddr::V4(src), SocketAddr::V4(dst)) =>
-                                ProxyProtocolV1Builder::new().tcp4(src.into(), dst.into()).build(),
-                            (SocketAddr::V6(src), SocketAddr::V6(dst)) =>
-                                ProxyProtocolV1Builder::new().tcp6(src.into(), dst.into()).build(),
-                            _ =>
-                                ProxyProtocolV1Builder::new().build(),
-                        },
-                    };
-                    Some(header)
-                }
-            };
+            let proxy_header =
+                build_mask_proxy_header(config.censorship.mask_proxy_protocol, peer, local_addr);
 
             let (mask_read, mut mask_write) = stream.into_split();
             if let Some(header) = proxy_header {

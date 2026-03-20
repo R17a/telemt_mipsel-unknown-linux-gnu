@@ -130,6 +130,41 @@ fn detect_client_type_len_boundary_9_vs_10_bytes() {
     assert_eq!(detect_client_type(b"1234567890"), "unknown");
 }
 
+#[test]
+fn build_mask_proxy_header_version_zero_disables_header() {
+    let peer: SocketAddr = "203.0.113.10:42424".parse().unwrap();
+    let local_addr: SocketAddr = "127.0.0.1:443".parse().unwrap();
+
+    let header = build_mask_proxy_header(0, peer, local_addr);
+    assert!(header.is_none(), "version 0 must disable PROXY header");
+}
+
+#[test]
+fn build_mask_proxy_header_v2_matches_builder_output() {
+    let peer: SocketAddr = "203.0.113.10:42424".parse().unwrap();
+    let local_addr: SocketAddr = "127.0.0.1:443".parse().unwrap();
+
+    let expected = ProxyProtocolV2Builder::new()
+        .with_addrs(peer, local_addr)
+        .build();
+    let actual = build_mask_proxy_header(2, peer, local_addr)
+        .expect("v2 mode must produce a header");
+
+    assert_eq!(actual, expected, "v2 header bytes must be deterministic");
+}
+
+#[test]
+fn build_mask_proxy_header_v1_mixed_ip_family_uses_generic_unknown_form() {
+    let peer: SocketAddr = "203.0.113.10:42424".parse().unwrap();
+    let local_addr: SocketAddr = "[2001:db8::1]:443".parse().unwrap();
+
+    let expected = ProxyProtocolV1Builder::new().build();
+    let actual = build_mask_proxy_header(1, peer, local_addr)
+        .expect("v1 mode must produce a header");
+
+    assert_eq!(actual, expected, "mixed-family v1 must use UNKNOWN form");
+}
+
 #[tokio::test]
 async fn beobachten_records_scanner_class_when_mask_is_disabled() {
     let mut config = ProxyConfig::default();

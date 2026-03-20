@@ -462,3 +462,208 @@ async fn client_repeat_acquire_release_cycles_never_accumulate_state() {
     assert_eq!(stats.get_user_curr_connects(user), 0);
     assert_eq!(ip_tracker.get_active_ip_count(user).await, 0);
 }
+
+#[tokio::test]
+async fn client_multi_user_isolation_under_parallel_limit_exhaustion() {
+    let stats = Arc::new(Stats::new());
+    let ip_tracker = Arc::new(UserIpTracker::new());
+
+    let mut config = ProxyConfig::default();
+    config.access.user_max_tcp_conns.insert("u1".to_string(), 8);
+    config.access.user_max_tcp_conns.insert("u2".to_string(), 8);
+
+    let mut tasks = Vec::new();
+    for i in 0..128u16 {
+        let stats = Arc::clone(&stats);
+        let ip_tracker = Arc::clone(&ip_tracker);
+        let config = config.clone();
+        tasks.push(tokio::spawn(async move {
+            let user = if i % 2 == 0 { "u1" } else { "u2" };
+            let peer = SocketAddr::new(
+                IpAddr::V4(Ipv4Addr::new(100, 64, (i / 64) as u8, (i % 64 + 1) as u8)),
+                37000 + i,
+            );
+            RunningClientHandler::acquire_user_connection_reservation_static(
+                user,
+                &config,
+                stats,
+                peer,
+                ip_tracker,
+            )
+            .await
+        }));
+    }
+
+    let mut u1_success = 0usize;
+    let mut u2_success = 0usize;
+    let mut reservations = Vec::new();
+    for (idx, result) in futures::future::join_all(tasks).await.into_iter().enumerate() {
+        let user = if idx % 2 == 0 { "u1" } else { "u2" };
+        match result.unwrap() {
+            Ok(reservation) => {
+                if user == "u1" {
+                    u1_success += 1;
+                } else {
+                    u2_success += 1;
+                }
+                reservations.push(reservation);
+            }
+            Err(ProxyError::ConnectionLimitExceeded { .. }) => {}
+            Err(other) => panic!("unexpected error: {other}"),
+        }
+    }
+
+    assert_eq!(u1_success, 8, "u1 must get exactly its own configured cap");
+    assert_eq!(u2_success, 8, "u2 must get exactly its own configured cap");
+
+    drop(reservations);
+    ip_tracker.drain_cleanup_queue().await;
+    assert_eq!(stats.get_user_curr_connects("u1"), 0);
+    assert_eq!(stats.get_user_curr_connects("u2"), 0);
+}
+
+#[tokio::test]
+async fn client_limit_recovery_after_full_rejection_wave() {
+    let user = "recover-user";
+    let stats = Arc::new(Stats::new());
+    let ip_tracker = Arc::new(UserIpTracker::new());
+    ip_tracker.set_user_limit(user, 1).await;
+
+    let mut config = ProxyConfig::default();
+    config.access.user_max_tcp_conns.insert(user.to_string(), 1);
+
+    let first_peer: SocketAddr = "198.51.100.50:38001".parse().unwrap();
+    let reservation = RunningClientHandler::acquire_user_connection_reservation_static(
+        user,
+        &config,
+        stats.clone(),
+        first_peer,
+        ip_tracker.clone(),
+    )
+    .await
+    .unwrap();
+
+    for i in 0..64u16 {
+        let peer = SocketAddr::new(
+            IpAddr::V4(Ipv4Addr::new(198, 51, 100, (i % 60 + 1) as u8)),
+            38002 + i,
+        );
+        let denied = RunningClientHandler::acquire_user_connection_reservation_static(
+            user,
+            &config,
+            stats.clone(),
+            peer,
+            ip_tracker.clone(),
+        )
+        .await;
+        assert!(matches!(denied, Err(ProxyError::ConnectionLimitExceeded { .. })));
+    }
+
+    drop(reservation);
+    ip_tracker.drain_cleanup_queue().await;
+    assert_eq!(stats.get_user_curr_connects(user), 0);
+
+    let recovery_peer: SocketAddr = "198.51.100.200:38999".parse().unwrap();
+    let recovered = RunningClientHandler::acquire_user_connection_reservation_static(
+        user,
+        &config,
+        stats.clone(),
+        recovery_peer,
+        ip_tracker.clone(),
+    )
+    .await;
+    assert!(recovered.is_ok(), "capacity must recover after prior holder drops");
+}
+
+#[tokio::test]
+async fn client_dual_limit_cross_product_never_leaks_on_reject() {
+    let user = "dual-limit-user";
+    let stats = Arc::new(Stats::new());
+    let ip_tracker = Arc::new(UserIpTracker::new());
+    ip_tracker.set_user_limit(user, 2).await;
+
+    let mut config = ProxyConfig::default();
+    config.access.user_max_tcp_conns.insert(user.to_string(), 2);
+
+    let p1: SocketAddr = "203.0.113.10:39001".parse().unwrap();
+    let p2: SocketAddr = "203.0.113.11:39002".parse().unwrap();
+    let r1 = RunningClientHandler::acquire_user_connection_reservation_static(
+        user,
+        &config,
+        stats.clone(),
+        p1,
+        ip_tracker.clone(),
+    )
+    .await
+    .unwrap();
+    let r2 = RunningClientHandler::acquire_user_connection_reservation_static(
+        user,
+        &config,
+        stats.clone(),
+        p2,
+        ip_tracker.clone(),
+    )
+    .await
+    .unwrap();
+
+    for i in 0..32u16 {
+        let peer = SocketAddr::new(
+            IpAddr::V4(Ipv4Addr::new(203, 0, 113, (50 + i) as u8)),
+            39010 + i,
+        );
+        let denied = RunningClientHandler::acquire_user_connection_reservation_static(
+            user,
+            &config,
+            stats.clone(),
+            peer,
+            ip_tracker.clone(),
+        )
+        .await;
+        assert!(matches!(denied, Err(ProxyError::ConnectionLimitExceeded { .. })));
+    }
+
+    assert_eq!(stats.get_user_curr_connects(user), 2);
+    drop((r1, r2));
+    ip_tracker.drain_cleanup_queue().await;
+    assert_eq!(stats.get_user_curr_connects(user), 0);
+    assert_eq!(ip_tracker.get_active_ip_count(user).await, 0);
+}
+
+#[tokio::test]
+async fn client_check_user_limits_concurrent_churn_no_counter_drift() {
+    let user = "check-drift-user";
+    let stats = Arc::new(Stats::new());
+    let ip_tracker = Arc::new(UserIpTracker::new());
+    ip_tracker.set_user_limit(user, 64).await;
+
+    let mut config = ProxyConfig::default();
+    config.access.user_max_tcp_conns.insert(user.to_string(), 64);
+
+    let mut tasks = Vec::new();
+    for i in 0..512u16 {
+        let stats = Arc::clone(&stats);
+        let ip_tracker = Arc::clone(&ip_tracker);
+        let config = config.clone();
+        tasks.push(tokio::spawn(async move {
+            let peer = SocketAddr::new(
+                IpAddr::V4(Ipv4Addr::new(172, 20, (i / 255) as u8, (i % 255 + 1) as u8)),
+                40000 + (i % 500),
+            );
+            let _ = RunningClientHandler::check_user_limits_static(
+                user,
+                &config,
+                &stats,
+                peer,
+                &ip_tracker,
+            )
+            .await;
+        }));
+    }
+
+    for task in futures::future::join_all(tasks).await {
+        task.unwrap();
+    }
+
+    assert_eq!(stats.get_user_curr_connects(user), 0);
+    assert_eq!(ip_tracker.get_active_ip_count(user).await, 0);
+}

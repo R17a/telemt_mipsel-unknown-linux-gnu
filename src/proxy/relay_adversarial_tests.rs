@@ -120,3 +120,91 @@ async fn relay_quota_mid_session_cutoff() {
     let n = sp_reader.read(&mut small_buf).await.unwrap();
     assert_eq!(n, 0, "Server must see EOF after quota reached");
 }
+
+#[tokio::test]
+async fn relay_chaos_half_close_crossfire_terminates_without_hang() {
+    let stats = Arc::new(Stats::new());
+
+    let (mut client_peer, relay_client) = duplex(8192);
+    let (relay_server, mut server_peer) = duplex(8192);
+
+    let (client_reader, client_writer) = tokio::io::split(relay_client);
+    let (server_reader, server_writer) = tokio::io::split(relay_server);
+
+    let relay_task = tokio::spawn(relay_bidirectional(
+        client_reader,
+        client_writer,
+        server_reader,
+        server_writer,
+        1024,
+        1024,
+        "half-close-crossfire",
+        Arc::clone(&stats),
+        None,
+        Arc::new(BufferPool::new()),
+    ));
+
+    client_peer.write_all(b"c2s-pre-half-close").await.unwrap();
+    server_peer.write_all(b"s2c-pre-half-close").await.unwrap();
+
+    client_peer.shutdown().await.unwrap();
+    tokio::time::sleep(Duration::from_millis(10)).await;
+    server_peer.shutdown().await.unwrap();
+
+    let done = timeout(Duration::from_secs(1), relay_task)
+        .await
+        .expect("relay must terminate after bilateral half-close")
+        .expect("relay task must not panic");
+    assert!(done.is_ok(), "relay must terminate cleanly under half-close crossfire");
+}
+
+#[tokio::test]
+#[ignore = "heavy soak; run manually"]
+async fn relay_soak_bidirectional_temporal_jitter_5k_rounds() {
+    let stats = Arc::new(Stats::new());
+
+    let (mut client_peer, relay_client) = duplex(65536);
+    let (relay_server, mut server_peer) = duplex(65536);
+
+    let (client_reader, client_writer) = tokio::io::split(relay_client);
+    let (server_reader, server_writer) = tokio::io::split(relay_server);
+
+    let relay_task = tokio::spawn(relay_bidirectional(
+        client_reader,
+        client_writer,
+        server_reader,
+        server_writer,
+        4096,
+        4096,
+        "soak-jitter-user",
+        Arc::clone(&stats),
+        None,
+        Arc::new(BufferPool::new()),
+    ));
+
+    for i in 0..5_000u32 {
+        let c = [((i as u8).wrapping_mul(13)).wrapping_add(1); 17];
+        client_peer.write_all(&c).await.unwrap();
+        let mut c_seen = [0u8; 17];
+        server_peer.read_exact(&mut c_seen).await.unwrap();
+        assert_eq!(c_seen, c);
+
+        let s = [((i as u8).wrapping_mul(7)).wrapping_add(3); 23];
+        server_peer.write_all(&s).await.unwrap();
+        let mut s_seen = [0u8; 23];
+        client_peer.read_exact(&mut s_seen).await.unwrap();
+        assert_eq!(s_seen, s);
+
+        if i % 10 == 0 {
+            tokio::time::sleep(Duration::from_millis((i % 3) as u64)).await;
+        }
+    }
+
+    drop(client_peer);
+    drop(server_peer);
+    let done = timeout(Duration::from_secs(2), relay_task)
+        .await
+        .expect("relay must stop after soak peers close")
+        .expect("relay task must not panic");
+    assert!(done.is_ok());
+}

@@ -334,6 +334,24 @@ impl ProxyConfig {
             ));
         }
 
+        let handshake_timeout_ms = config
+            .timeouts
+            .client_handshake
+            .checked_mul(1000)
+            .ok_or_else(|| {
+                ProxyError::Config(
+                    "timeouts.client_handshake is too large to validate milliseconds budget"
+                        .to_string(),
+                )
+            })?;
+
+        if config.censorship.server_hello_delay_max_ms >= handshake_timeout_ms {
+            return Err(ProxyError::Config(
+                "censorship.server_hello_delay_max_ms must be < timeouts.client_handshake * 1000"
+                    .to_string(),
+            ));
+        }
+
         if config.timeouts.relay_client_idle_soft_secs == 0 {
             return Err(ProxyError::Config(
                 "timeouts.relay_client_idle_soft_secs must be > 0".to_string(),
@@ -976,6 +994,10 @@ impl ProxyConfig {
 #[cfg(test)]
 #[path = "load_idle_policy_tests.rs"]
 mod load_idle_policy_tests;
+
+#[cfg(test)]
+#[path = "load_security_tests.rs"]
+mod load_security_tests;
 
 #[cfg(test)]
 mod tests {
