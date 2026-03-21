@@ -1,10 +1,14 @@
 use super::*;
-use std::sync::Arc;
-use std::net::{IpAddr, Ipv4Addr};
-use std::time::{Duration, Instant};
 use crate::crypto::sha256;
+use std::net::{IpAddr, Ipv4Addr};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 
-fn make_valid_mtproto_handshake(secret_hex: &str, proto_tag: ProtoTag, dc_idx: i16) -> [u8; HANDSHAKE_LEN] {
+fn make_valid_mtproto_handshake(
+    secret_hex: &str,
+    proto_tag: ProtoTag,
+    dc_idx: i16,
+) -> [u8; HANDSHAKE_LEN] {
     let secret = hex::decode(secret_hex).expect("secret hex must decode");
     let mut handshake = [0x5Au8; HANDSHAKE_LEN];
     for (idx, b) in handshake[SKIP_LEN..SKIP_LEN + PREKEY_LEN + IV_LEN]
@@ -49,7 +53,9 @@ fn auth_probe_test_guard() -> std::sync::MutexGuard<'static, ()> {
 fn test_config_with_secret_hex(secret_hex: &str) -> ProxyConfig {
     let mut cfg = ProxyConfig::default();
     cfg.access.users.clear();
-    cfg.access.users.insert("user".to_string(), secret_hex.to_string());
+    cfg.access
+        .users
+        .insert("user".to_string(), secret_hex.to_string());
     cfg.access.ignore_time_skew = true;
     cfg.general.modes.secure = true;
     cfg
@@ -71,9 +77,19 @@ async fn mtproto_handshake_bit_flip_anywhere_rejected() {
     let peer: SocketAddr = "192.0.2.1:12345".parse().unwrap();
 
     // Baseline check
-    let res = handle_mtproto_handshake(&base, tokio::io::empty(), tokio::io::sink(), peer, &config, &replay_checker, false, None).await;
+    let res = handle_mtproto_handshake(
+        &base,
+        tokio::io::empty(),
+        tokio::io::sink(),
+        peer,
+        &config,
+        &replay_checker,
+        false,
+        None,
+    )
+    .await;
     match res {
-        HandshakeResult::Success(_) => {},
+        HandshakeResult::Success(_) => {}
         _ => panic!("Baseline failed: expected Success"),
     }
 
@@ -81,8 +97,21 @@ async fn mtproto_handshake_bit_flip_anywhere_rejected() {
     for byte_pos in SKIP_LEN..HANDSHAKE_LEN {
         let mut h = base;
         h[byte_pos] ^= 0x01; // Flip 1 bit
-        let res = handle_mtproto_handshake(&h, tokio::io::empty(), tokio::io::sink(), peer, &config, &replay_checker, false, None).await;
-        assert!(matches!(res, HandshakeResult::BadClient { .. }), "Flip at byte {byte_pos} bit 0 must be rejected");
+        let res = handle_mtproto_handshake(
+            &h,
+            tokio::io::empty(),
+            tokio::io::sink(),
+            peer,
+            &config,
+            &replay_checker,
+            false,
+            None,
+        )
+        .await;
+        assert!(
+            matches!(res, HandshakeResult::BadClient { .. }),
+            "Flip at byte {byte_pos} bit 0 must be rejected"
+        );
     }
 }
 
@@ -99,25 +128,51 @@ async fn mtproto_handshake_timing_neutrality_mocked() {
     let peer: SocketAddr = "192.0.2.2:54321".parse().unwrap();
 
     const ITER: usize = 50;
-    
+
     let mut start = Instant::now();
     for _ in 0..ITER {
-        let _ = handle_mtproto_handshake(&base, tokio::io::empty(), tokio::io::sink(), peer, &config, &replay_checker, false, None).await;
+        let _ = handle_mtproto_handshake(
+            &base,
+            tokio::io::empty(),
+            tokio::io::sink(),
+            peer,
+            &config,
+            &replay_checker,
+            false,
+            None,
+        )
+        .await;
     }
     let duration_success = start.elapsed();
 
     start = Instant::now();
     for i in 0..ITER {
         let mut h = base;
-        h[SKIP_LEN + (i % 48)] ^= 0xFF; 
-        let _ = handle_mtproto_handshake(&h, tokio::io::empty(), tokio::io::sink(), peer, &config, &replay_checker, false, None).await;
+        h[SKIP_LEN + (i % 48)] ^= 0xFF;
+        let _ = handle_mtproto_handshake(
+            &h,
+            tokio::io::empty(),
+            tokio::io::sink(),
+            peer,
+            &config,
+            &replay_checker,
+            false,
+            None,
+        )
+        .await;
     }
     let duration_fail = start.elapsed();
 
-    let avg_diff_ms = (duration_success.as_millis() as f64 - duration_fail.as_millis() as f64).abs() / ITER as f64;
-    
+    let avg_diff_ms = (duration_success.as_millis() as f64 - duration_fail.as_millis() as f64)
+        .abs()
+        / ITER as f64;
+
     // Threshold (loose for CI)
-    assert!(avg_diff_ms < 100.0, "Timing difference too large: {} ms/iter", avg_diff_ms);
+    assert!(
+        avg_diff_ms < 100.0,
+        "Timing difference too large: {} ms/iter",
+        avg_diff_ms
+    );
 }
 
 // ------------------------------------------------------------------
@@ -130,13 +185,13 @@ async fn auth_probe_throttle_saturation_stress() {
     clear_auth_probe_state_for_testing();
 
     let now = Instant::now();
-    
+
     // Record enough failures for one IP to trigger backoff
     let target_ip = IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1));
     for _ in 0..AUTH_PROBE_BACKOFF_START_FAILS {
         auth_probe_record_failure(target_ip, now);
     }
-    
+
     assert!(auth_probe_is_throttled(target_ip, now));
 
     // Stress test with many unique IPs
@@ -145,10 +200,7 @@ async fn auth_probe_throttle_saturation_stress() {
         auth_probe_record_failure(ip, now);
     }
 
-    let tracked = AUTH_PROBE_STATE
-        .get()
-        .map(|state| state.len())
-        .unwrap_or(0);
+    let tracked = AUTH_PROBE_STATE.get().map(|state| state.len()).unwrap_or(0);
     assert!(
         tracked <= AUTH_PROBE_TRACK_MAX_ENTRIES,
         "auth probe state grew past hard cap: {tracked} > {AUTH_PROBE_TRACK_MAX_ENTRIES}"
@@ -166,7 +218,17 @@ async fn mtproto_handshake_abridged_prefix_rejected() {
     let replay_checker = ReplayChecker::new(128, Duration::from_secs(60));
     let peer: SocketAddr = "192.0.2.3:12345".parse().unwrap();
 
-    let res = handle_mtproto_handshake(&handshake, tokio::io::empty(), tokio::io::sink(), peer, &config, &replay_checker, false, None).await;
+    let res = handle_mtproto_handshake(
+        &handshake,
+        tokio::io::empty(),
+        tokio::io::sink(),
+        peer,
+        &config,
+        &replay_checker,
+        false,
+        None,
+    )
+    .await;
     // MTProxy stops immediately on 0xef
     assert!(matches!(res, HandshakeResult::BadClient { .. }));
 }
@@ -178,11 +240,17 @@ async fn mtproto_handshake_preferred_user_mismatch_continues() {
 
     let secret1_hex = "11111111111111111111111111111111";
     let secret2_hex = "22222222222222222222222222222222";
-    
+
     let base = make_valid_mtproto_handshake(secret2_hex, ProtoTag::Secure, 1);
     let mut config = ProxyConfig::default();
-    config.access.users.insert("user1".to_string(), secret1_hex.to_string());
-    config.access.users.insert("user2".to_string(), secret2_hex.to_string());
+    config
+        .access
+        .users
+        .insert("user1".to_string(), secret1_hex.to_string());
+    config
+        .access
+        .users
+        .insert("user2".to_string(), secret2_hex.to_string());
     config.access.ignore_time_skew = true;
     config.general.modes.secure = true;
 
@@ -190,7 +258,17 @@ async fn mtproto_handshake_preferred_user_mismatch_continues() {
     let peer: SocketAddr = "192.0.2.4:12345".parse().unwrap();
 
     // Even if we prefer user1, if user2 matches, it should succeed.
-    let res = handle_mtproto_handshake(&base, tokio::io::empty(), tokio::io::sink(), peer, &config, &replay_checker, false, Some("user1")).await;
+    let res = handle_mtproto_handshake(
+        &base,
+        tokio::io::empty(),
+        tokio::io::sink(),
+        peer,
+        &config,
+        &replay_checker,
+        false,
+        Some("user1"),
+    )
+    .await;
     if let HandshakeResult::Success((_, _, success)) = res {
         assert_eq!(success.user, "user2");
     } else {
@@ -209,20 +287,30 @@ async fn mtproto_handshake_concurrent_flood_stability() {
     config.access.ignore_time_skew = true;
     let replay_checker = Arc::new(ReplayChecker::new(1024, Duration::from_secs(60)));
     let config = Arc::new(config);
-    
+
     let mut tasks = Vec::new();
     for i in 0..50 {
         let base = base;
         let config = Arc::clone(&config);
         let replay_checker = Arc::clone(&replay_checker);
         let peer: SocketAddr = format!("192.0.2.{}:12345", (i % 254) + 1).parse().unwrap();
-        
+
         tasks.push(tokio::spawn(async move {
-            let res = handle_mtproto_handshake(&base, tokio::io::empty(), tokio::io::sink(), peer, &config, &replay_checker, false, None).await;
+            let res = handle_mtproto_handshake(
+                &base,
+                tokio::io::empty(),
+                tokio::io::sink(),
+                peer,
+                &config,
+                &replay_checker,
+                false,
+                None,
+            )
+            .await;
             matches!(res, HandshakeResult::Success(_))
         }));
     }
-    
+
     // We don't necessarily care if they all succeed (some might fail due to replay if they hit the same chunk),
     // but the system must not panic or hang.
     for task in tasks {
@@ -306,7 +394,10 @@ async fn mtproto_blackhat_mutation_corpus_never_panics_and_stays_fail_closed() {
         .expect("fuzzed mutation must complete in bounded time");
 
         assert!(
-            matches!(res, HandshakeResult::BadClient { .. } | HandshakeResult::Success(_)),
+            matches!(
+                res,
+                HandshakeResult::BadClient { .. } | HandshakeResult::Success(_)
+            ),
             "mutation corpus must stay within explicit handshake outcomes"
         );
     }
@@ -345,7 +436,12 @@ async fn mtproto_invalid_storm_over_cap_keeps_probe_map_hard_bounded() {
 
     for i in 0..(AUTH_PROBE_TRACK_MAX_ENTRIES + 512) {
         let peer: SocketAddr = SocketAddr::new(
-            IpAddr::V4(Ipv4Addr::new(10, (i / 65535) as u8, ((i / 255) % 255) as u8, (i % 255 + 1) as u8)),
+            IpAddr::V4(Ipv4Addr::new(
+                10,
+                (i / 65535) as u8,
+                ((i / 255) % 255) as u8,
+                (i % 255 + 1) as u8,
+            )),
             43000 + (i % 20000) as u16,
         );
         let res = handle_mtproto_handshake(
@@ -362,10 +458,7 @@ async fn mtproto_invalid_storm_over_cap_keeps_probe_map_hard_bounded() {
         assert!(matches!(res, HandshakeResult::BadClient { .. }));
     }
 
-    let tracked = AUTH_PROBE_STATE
-        .get()
-        .map(|state| state.len())
-        .unwrap_or(0);
+    let tracked = AUTH_PROBE_STATE.get().map(|state| state.len()).unwrap_or(0);
     assert!(
         tracked <= AUTH_PROBE_TRACK_MAX_ENTRIES,
         "probe map must remain bounded under invalid storm: {tracked}"
@@ -415,7 +508,10 @@ async fn mtproto_property_style_multi_bit_mutations_fail_closed_or_auth_only() {
         .expect("mutation iteration must complete in bounded time");
 
         assert!(
-            matches!(outcome, HandshakeResult::BadClient { .. } | HandshakeResult::Success(_)),
+            matches!(
+                outcome,
+                HandshakeResult::BadClient { .. } | HandshakeResult::Success(_)
+            ),
             "mutations must remain fail-closed/auth-only"
         );
     }

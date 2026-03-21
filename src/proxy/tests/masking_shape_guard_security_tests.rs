@@ -1,7 +1,7 @@
 use super::*;
-use tokio::io::{duplex, AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, duplex};
 use tokio::net::TcpListener;
-use tokio::time::{timeout, Duration};
+use tokio::time::{Duration, timeout};
 
 #[tokio::test]
 async fn shape_guard_empty_initial_data_keeps_transparent_length_on_clean_eof() {
@@ -15,7 +15,10 @@ async fn shape_guard_empty_initial_data_keeps_transparent_length_on_clean_eof() 
             let (mut stream, _) = listener.accept().await.unwrap();
             let mut got = Vec::new();
             stream.read_to_end(&mut got).await.unwrap();
-            assert_eq!(got, expected, "empty initial_data path must not inject shape padding");
+            assert_eq!(
+                got, expected,
+                "empty initial_data path must not inject shape padding"
+            );
         }
     });
 
@@ -51,8 +54,14 @@ async fn shape_guard_empty_initial_data_keeps_transparent_length_on_clean_eof() 
     client_writer.write_all(&client_payload).await.unwrap();
     client_writer.shutdown().await.unwrap();
 
-    timeout(Duration::from_secs(2), relay_task).await.unwrap().unwrap();
-    timeout(Duration::from_secs(2), accept_task).await.unwrap().unwrap();
+    timeout(Duration::from_secs(2), relay_task)
+        .await
+        .unwrap()
+        .unwrap();
+    timeout(Duration::from_secs(2), accept_task)
+        .await
+        .unwrap()
+        .unwrap();
 }
 
 #[tokio::test]
@@ -105,7 +114,10 @@ async fn shape_guard_timeout_exit_does_not_append_padding_after_initial_probe() 
     )
     .await;
 
-    timeout(Duration::from_secs(2), accept_task).await.unwrap().unwrap();
+    timeout(Duration::from_secs(2), accept_task)
+        .await
+        .unwrap()
+        .unwrap();
 }
 
 #[tokio::test]
@@ -126,7 +138,11 @@ async fn shape_guard_clean_eof_with_nonempty_initial_still_applies_bucket_paddin
             let expected_prefix_len = initial.len() + extra.len();
             assert_eq!(&got[..initial.len()], initial.as_slice());
             assert_eq!(&got[initial.len()..expected_prefix_len], extra.as_slice());
-            assert_eq!(got.len(), 512, "clean EOF path should still shape to floor bucket");
+            assert_eq!(
+                got.len(),
+                512,
+                "clean EOF path should still shape to floor bucket"
+            );
         }
     });
 
@@ -162,6 +178,12 @@ async fn shape_guard_clean_eof_with_nonempty_initial_still_applies_bucket_paddin
     client_writer.write_all(&extra).await.unwrap();
     client_writer.shutdown().await.unwrap();
 
-    timeout(Duration::from_secs(2), relay_task).await.unwrap().unwrap();
-    timeout(Duration::from_secs(2), accept_task).await.unwrap().unwrap();
+    timeout(Duration::from_secs(2), relay_task)
+        .await
+        .unwrap()
+        .unwrap();
+    timeout(Duration::from_secs(2), accept_task)
+        .await
+        .unwrap()
+        .unwrap();
 }

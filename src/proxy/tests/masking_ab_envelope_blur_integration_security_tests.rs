@@ -277,7 +277,10 @@ async fn integration_ab_harness_envelope_and_blur_improve_obfuscation_vs_baselin
         hardened_b.len()
     );
 
-    assert_eq!(baseline_overlap, 0, "baseline above-cap classes should be disjoint");
+    assert_eq!(
+        baseline_overlap, 0,
+        "baseline above-cap classes should be disjoint"
+    );
     assert!(
         hardened_overlap > baseline_overlap,
         "above-cap blur should increase cross-class overlap: baseline={} hardened={}",
@@ -314,7 +317,10 @@ fn timing_classifier_helper_threshold_accuracy_drops_for_identical_sets() {
     let a = vec![10u128, 11, 12, 13, 14];
     let b = vec![10u128, 11, 12, 13, 14];
     let acc = best_threshold_accuracy_u128(&a, &b);
-    assert!(acc <= 0.6, "identical sets should not be strongly separable");
+    assert!(
+        acc <= 0.6,
+        "identical sets should not be strongly separable"
+    );
 }
 
 #[test]
@@ -336,7 +342,10 @@ async fn timing_classifier_baseline_connect_fail_vs_slow_backend_is_highly_separ
     let slow = collect_timing_samples(PathClass::SlowBackend, false, 8).await;
 
     let acc = best_threshold_accuracy_u128(&fail, &slow);
-    assert!(acc >= 0.80, "baseline timing classes should be separable enough");
+    assert!(
+        acc >= 0.80,
+        "baseline timing classes should be separable enough"
+    );
 }
 
 #[tokio::test]
@@ -408,7 +417,10 @@ async fn timing_classifier_normalized_mean_bucket_delta_connect_fail_vs_connect_
     let fail_mean = mean_ms(&fail);
     let success_mean = mean_ms(&success);
     let delta_bucket = ((fail_mean as i128 - success_mean as i128).abs()) / 20;
-    assert!(delta_bucket <= 3, "mean bucket delta too large: {delta_bucket}");
+    assert!(
+        delta_bucket <= 3,
+        "mean bucket delta too large: {delta_bucket}"
+    );
 }
 
 #[tokio::test]
@@ -418,7 +430,10 @@ async fn timing_classifier_normalized_p95_bucket_delta_connect_success_vs_slow_i
     let p95_success = percentile_ms(success, 95, 100);
     let p95_slow = percentile_ms(slow, 95, 100);
     let delta_bucket = ((p95_success as i128 - p95_slow as i128).abs()) / 20;
-    assert!(delta_bucket <= 4, "p95 bucket delta too large: {delta_bucket}");
+    assert!(
+        delta_bucket <= 4,
+        "p95 bucket delta too large: {delta_bucket}"
+    );
 }
 
 #[tokio::test]
@@ -434,7 +449,8 @@ async fn timing_classifier_normalized_spread_is_not_worse_than_baseline_for_conn
 }
 
 #[tokio::test]
-async fn timing_classifier_light_fuzz_pairwise_bucketed_accuracy_stays_bounded_under_normalization() {
+async fn timing_classifier_light_fuzz_pairwise_bucketed_accuracy_stays_bounded_under_normalization()
+{
     let pairs = [
         (PathClass::ConnectFail, PathClass::ConnectSuccess),
         (PathClass::ConnectFail, PathClass::SlowBackend),
@@ -504,7 +520,10 @@ async fn timing_classifier_stress_parallel_sampling_finishes_and_stays_bounded()
                 _ => PathClass::SlowBackend,
             };
             let sample = measure_masking_duration_ms(class, true).await;
-            assert!((100..=1600).contains(&sample), "stress sample out of bounds: {sample}");
+            assert!(
+                (100..=1600).contains(&sample),
+                "stress sample out of bounds: {sample}"
+            );
         }));
     }
 

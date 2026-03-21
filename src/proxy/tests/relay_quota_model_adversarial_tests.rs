@@ -5,9 +5,9 @@ use crate::stream::BufferPool;
 use rand::rngs::StdRng;
 use rand::{RngExt, SeedableRng};
 use std::sync::Arc;
-use tokio::io::{duplex, AsyncRead, AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt, duplex};
 use tokio::sync::Barrier;
-use tokio::time::{timeout, Duration};
+use tokio::time::{Duration, timeout};
 
 fn assert_is_prefix(received: &[u8], sent: &[u8], direction: &str) {
     assert!(
@@ -110,7 +110,8 @@ async fn model_fuzz_bidirectional_schedule_preserves_prefixes_and_quota_budget()
             .expect("fuzz relay task must not panic");
 
         assert!(
-            relay_result.is_ok() || matches!(relay_result, Err(ProxyError::DataQuotaExceeded { .. })),
+            relay_result.is_ok()
+                || matches!(relay_result, Err(ProxyError::DataQuotaExceeded { .. })),
             "fuzz case {case}: relay must end cleanly or with typed quota error"
         );
 
@@ -172,11 +173,21 @@ async fn adversarial_dual_direction_cutoff_race_allows_at_most_one_forwarded_byt
     let mut got_at_server = [0u8; 1];
     let mut got_at_client = [0u8; 1];
 
-    let n_server = match timeout(Duration::from_millis(120), server_peer.read(&mut got_at_server)).await {
+    let n_server = match timeout(
+        Duration::from_millis(120),
+        server_peer.read(&mut got_at_server),
+    )
+    .await
+    {
         Ok(Ok(n)) => n,
         _ => 0,
     };
-    let n_client = match timeout(Duration::from_millis(120), client_peer.read(&mut got_at_client)).await {
+    let n_client = match timeout(
+        Duration::from_millis(120),
+        client_peer.read(&mut got_at_client),
+    )
+    .await
+    {
         Ok(Ok(n)) => n,
         _ => 0,
     };
@@ -194,7 +205,10 @@ async fn adversarial_dual_direction_cutoff_race_allows_at_most_one_forwarded_byt
         .expect("quota race relay must terminate")
         .expect("quota race relay task must not panic");
 
-    assert!(matches!(relay_result, Err(ProxyError::DataQuotaExceeded { .. })));
+    assert!(matches!(
+        relay_result,
+        Err(ProxyError::DataQuotaExceeded { .. })
+    ));
     assert!(stats.get_user_total_octets(user) <= 1);
 }
 
@@ -276,7 +290,8 @@ async fn stress_shared_user_multi_relay_global_quota_never_overshoots_under_mode
                 .expect("stress relay task must not panic");
 
             assert!(
-                relay_result.is_ok() || matches!(relay_result, Err(ProxyError::DataQuotaExceeded { .. })),
+                relay_result.is_ok()
+                    || matches!(relay_result, Err(ProxyError::DataQuotaExceeded { .. })),
                 "stress relay must end cleanly or with typed quota error"
             );
 

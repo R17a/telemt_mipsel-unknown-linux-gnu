@@ -1,7 +1,7 @@
 use super::*;
 use crate::config::{UpstreamConfig, UpstreamType};
 use std::sync::Arc;
-use tokio::io::{duplex, AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, duplex};
 use tokio::net::TcpListener;
 use tokio::time::{Duration, Instant};
 
@@ -164,10 +164,7 @@ async fn redteam_shape_02_padding_tail_must_be_non_deterministic() {
     let cap = 4096usize;
     let got = run_probe_capture(17, 600, true, floor, cap).await;
 
-    assert!(
-        got.len() > 22,
-        "test requires padding tail to exist"
-    );
+    assert!(got.len() > 22, "test requires padding tail to exist");
 
     let tail = &got[22..];
     assert!(
@@ -194,7 +191,9 @@ async fn redteam_shape_03_exact_floor_input_should_not_be_fixed_point() {
 async fn redteam_shape_04_all_sub_cap_sizes_should_collapse_to_single_size() {
     let floor = 512usize;
     let cap = 4096usize;
-    let classes = [17usize, 63usize, 255usize, 511usize, 1023usize, 2047usize, 3071usize];
+    let classes = [
+        17usize, 63usize, 255usize, 511usize, 1023usize, 2047usize, 3071usize,
+    ];
 
     let mut observed = Vec::new();
     for body in classes {
@@ -203,7 +202,10 @@ async fn redteam_shape_04_all_sub_cap_sizes_should_collapse_to_single_size() {
 
     let first = observed[0];
     for v in observed {
-        assert_eq!(v, first, "strict model expects one collapsed class across all sub-cap probes");
+        assert_eq!(
+            v, first,
+            "strict model expects one collapsed class across all sub-cap probes"
+        );
     }
 }
 

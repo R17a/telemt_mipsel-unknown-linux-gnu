@@ -5,9 +5,9 @@
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
-use std::sync::Mutex;
 
 use tokio::sync::{Mutex as AsyncMutex, RwLock};
 
@@ -40,7 +40,6 @@ impl UserIpTracker {
             cleanup_drain_lock: Arc::new(AsyncMutex::new(())),
         }
     }
-
 
     pub fn enqueue_cleanup(&self, user: String, ip: IpAddr) {
         match self.cleanup_queue.lock() {
@@ -129,7 +128,8 @@ impl UserIpTracker {
 
         let mut active_ips = self.active_ips.write().await;
         let mut recent_ips = self.recent_ips.write().await;
-        let mut users = Vec::<String>::with_capacity(active_ips.len().saturating_add(recent_ips.len()));
+        let mut users =
+            Vec::<String>::with_capacity(active_ips.len().saturating_add(recent_ips.len()));
         users.extend(active_ips.keys().cloned());
         for user in recent_ips.keys() {
             if !active_ips.contains_key(user) {
@@ -138,8 +138,14 @@ impl UserIpTracker {
         }
 
         for user in users {
-            let active_empty = active_ips.get(&user).map(|ips| ips.is_empty()).unwrap_or(true);
-            let recent_empty = recent_ips.get(&user).map(|ips| ips.is_empty()).unwrap_or(true);
+            let active_empty = active_ips
+                .get(&user)
+                .map(|ips| ips.is_empty())
+                .unwrap_or(true);
+            let recent_empty = recent_ips
+                .get(&user)
+                .map(|ips| ips.is_empty())
+                .unwrap_or(true);
             if active_empty && recent_empty {
                 active_ips.remove(&user);
                 recent_ips.remove(&user);

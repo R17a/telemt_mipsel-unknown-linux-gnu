@@ -2,17 +2,14 @@ use super::*;
 use crate::config::{UpstreamConfig, UpstreamType};
 use crate::crypto::sha256_hmac;
 use crate::protocol::constants::{
-    HANDSHAKE_LEN,
-    MAX_TLS_PLAINTEXT_SIZE,
-    MIN_TLS_CLIENT_HELLO_SIZE,
-    TLS_RECORD_APPLICATION,
+    HANDSHAKE_LEN, MAX_TLS_PLAINTEXT_SIZE, MIN_TLS_CLIENT_HELLO_SIZE, TLS_RECORD_APPLICATION,
     TLS_VERSION,
 };
 use crate::protocol::tls;
 use std::collections::HashSet;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use tokio::io::{duplex, AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, duplex};
 use tokio::net::TcpListener;
 use tokio::time::{Duration, Instant};
 
@@ -79,7 +76,10 @@ fn build_mask_harness(secret_hex: &str, mask_port: u16) -> CampaignHarness {
 }
 
 fn make_valid_tls_client_hello(secret: &[u8], timestamp: u32, tls_len: usize, fill: u8) -> Vec<u8> {
-    assert!(tls_len <= u16::MAX as usize, "TLS length must fit into record header");
+    assert!(
+        tls_len <= u16::MAX as usize,
+        "TLS length must fit into record header"
+    );
 
     let total_len = 5 + tls_len;
     let mut handshake = vec![fill; total_len];
@@ -171,7 +171,10 @@ async fn run_tls_success_mtproto_fail_capture(
     client_side.write_all(&client_hello).await.unwrap();
 
     let mut tls_response_head = [0u8; 5];
-    client_side.read_exact(&mut tls_response_head).await.unwrap();
+    client_side
+        .read_exact(&mut tls_response_head)
+        .await
+        .unwrap();
     assert_eq!(tls_response_head[0], 0x16);
     read_and_discard_tls_record_body(&mut client_side, tls_response_head).await;
 
@@ -427,7 +430,10 @@ async fn blackhat_campaign_06_replayed_tls_hello_is_masked_without_serverhello()
                 client_side.read_exact(&mut head).await.unwrap();
                 assert_eq!(head[0], 0x16);
                 read_and_discard_tls_record_body(&mut client_side, head).await;
-                client_side.write_all(&invalid_mtproto_record).await.unwrap();
+                client_side
+                    .write_all(&invalid_mtproto_record)
+                    .await
+                    .unwrap();
                 client_side.write_all(&first_tail).await.unwrap();
             } else {
                 let mut one = [0u8; 1];
@@ -697,13 +703,15 @@ async fn blackhat_campaign_12_parallel_tls_success_mtproto_fail_sessions_keep_is
 
     let mut tasks = Vec::new();
     for i in 0..sessions {
-        let mut harness = build_mask_harness("abababababababababababababababab", backend_addr.port());
+        let mut harness =
+            build_mask_harness("abababababababababababababababab", backend_addr.port());
         let mut cfg = (*harness.config).clone();
         cfg.censorship.mask_port = backend_addr.port();
         harness.config = Arc::new(cfg);
         tasks.push(tokio::spawn(async move {
             let secret = [0xABu8; 16];
-            let hello = make_valid_tls_client_hello(&secret, 100 + i as u32, 600, 0x40 + (i as u8 % 10));
+            let hello =
+                make_valid_tls_client_hello(&secret, 100 + i as u32, 600, 0x40 + (i as u8 % 10));
             let bad = wrap_tls_application_data(&vec![0u8; HANDSHAKE_LEN]);
             let tail = wrap_tls_application_data(&vec![i as u8; 8 + i]);
             let (server_side, mut client_side) = duplex(131072);
@@ -843,12 +851,12 @@ async fn blackhat_campaign_15_light_fuzz_tls_lengths_and_fragmentation() {
             tls_len = MAX_TLS_PLAINTEXT_SIZE + 1 + (tls_len % 1024);
         }
 
-        let body_to_send = if (MIN_TLS_CLIENT_HELLO_SIZE..=MAX_TLS_PLAINTEXT_SIZE).contains(&tls_len)
-        {
-            (seed as usize % 29).min(tls_len.saturating_sub(1))
-        } else {
-            0
-        };
+        let body_to_send =
+            if (MIN_TLS_CLIENT_HELLO_SIZE..=MAX_TLS_PLAINTEXT_SIZE).contains(&tls_len) {
+                (seed as usize % 29).min(tls_len.saturating_sub(1))
+            } else {
+                0
+            };
 
         let mut probe = vec![0u8; 5 + body_to_send];
         probe[0] = 0x16;
@@ -856,7 +864,9 @@ async fn blackhat_campaign_15_light_fuzz_tls_lengths_and_fragmentation() {
         probe[2] = 0x01;
         probe[3..5].copy_from_slice(&(tls_len as u16).to_be_bytes());
         for b in &mut probe[5..] {
-            seed = seed.wrapping_mul(2862933555777941757).wrapping_add(3037000493);
+            seed = seed
+                .wrapping_mul(2862933555777941757)
+                .wrapping_add(3037000493);
             *b = (seed >> 24) as u8;
         }
 
@@ -879,7 +889,8 @@ async fn blackhat_campaign_16_mixed_probe_burst_stress_finishes_without_panics()
                 probe[2] = 0x01;
                 probe[3..5].copy_from_slice(&600u16.to_be_bytes());
                 probe[5..].fill((0x90 + i as u8) ^ 0x5A);
-                run_invalid_tls_capture(Arc::new(ProxyConfig::default()), probe.clone(), probe).await;
+                run_invalid_tls_capture(Arc::new(ProxyConfig::default()), probe.clone(), probe)
+                    .await;
             } else {
                 let hdr = vec![0x16, 0x03, 0x01, 0xFF, i as u8];
                 run_invalid_tls_capture(Arc::new(ProxyConfig::default()), hdr.clone(), hdr).await;

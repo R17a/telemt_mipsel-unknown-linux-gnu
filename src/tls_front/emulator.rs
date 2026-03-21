@@ -1,7 +1,7 @@
-use crate::crypto::{sha256_hmac, SecureRandom};
+use crate::crypto::{SecureRandom, sha256_hmac};
 use crate::protocol::constants::{
-    MAX_TLS_CIPHERTEXT_SIZE,
-    TLS_RECORD_APPLICATION, TLS_RECORD_CHANGE_CIPHER, TLS_RECORD_HANDSHAKE, TLS_VERSION,
+    MAX_TLS_CIPHERTEXT_SIZE, TLS_RECORD_APPLICATION, TLS_RECORD_CHANGE_CIPHER,
+    TLS_RECORD_HANDSHAKE, TLS_VERSION,
 };
 use crate::protocol::tls::{TLS_DIGEST_LEN, TLS_DIGEST_POS, gen_fake_x25519_key};
 use crate::tls_front::types::{CachedTlsData, ParsedCertificateInfo, TlsProfileSource};
@@ -167,7 +167,13 @@ pub fn build_emulated_server_hello(
             .app_data_records_sizes
             .first()
             .copied()
-            .or_else(|| cached.behavior_profile.app_data_record_sizes.first().copied())
+            .or_else(|| {
+                cached
+                    .behavior_profile
+                    .app_data_record_sizes
+                    .first()
+                    .copied()
+            })
             .map(|size| vec![size])
             .unwrap_or_else(|| vec![cached.total_app_data_len.max(1024)]),
         _ => {
@@ -240,7 +246,9 @@ pub fn build_emulated_server_hello(
         } else if size > 17 {
             let body_len = size - 17;
             let mut body = Vec::with_capacity(body_len);
-            if idx == 0 && let Some(marker) = &alpn_marker {
+            if idx == 0
+                && let Some(marker) = &alpn_marker
+            {
                 if marker.len() <= body_len {
                     body.extend_from_slice(marker);
                     if body_len > marker.len() {
@@ -277,7 +285,9 @@ pub fn build_emulated_server_hello(
         }
     }
 
-    let mut response = Vec::with_capacity(server_hello.len() + change_cipher_spec.len() + app_data.len() + tickets.len());
+    let mut response = Vec::with_capacity(
+        server_hello.len() + change_cipher_spec.len() + app_data.len() + tickets.len(),
+    );
     response.extend_from_slice(&server_hello);
     response.extend_from_slice(&change_cipher_spec);
     response.extend_from_slice(&app_data);
@@ -314,9 +324,11 @@ mod tests {
     fn first_app_data_payload(response: &[u8]) -> &[u8] {
         let hello_len = u16::from_be_bytes([response[3], response[4]]) as usize;
         let ccs_start = 5 + hello_len;
-        let ccs_len = u16::from_be_bytes([response[ccs_start + 3], response[ccs_start + 4]]) as usize;
+        let ccs_len =
+            u16::from_be_bytes([response[ccs_start + 3], response[ccs_start + 4]]) as usize;
         let app_start = ccs_start + 5 + ccs_len;
-        let app_len = u16::from_be_bytes([response[app_start + 3], response[app_start + 4]]) as usize;
+        let app_len =
+            u16::from_be_bytes([response[app_start + 3], response[app_start + 4]]) as usize;
         &response[app_start + 5..app_start + 5 + app_len]
     }
 
@@ -445,7 +457,8 @@ mod tests {
         let hello_len = u16::from_be_bytes([response[3], response[4]]) as usize;
         let ccs_start = 5 + hello_len;
         let app_start = ccs_start + 6;
-        let app_len = u16::from_be_bytes([response[app_start + 3], response[app_start + 4]]) as usize;
+        let app_len =
+            u16::from_be_bytes([response[app_start + 3], response[app_start + 4]]) as usize;
 
         assert_eq!(response[app_start], TLS_RECORD_APPLICATION);
         assert_eq!(app_start + 5 + app_len, response.len());

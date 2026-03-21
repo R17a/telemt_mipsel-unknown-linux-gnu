@@ -7,8 +7,8 @@ use std::time::Duration;
 
 use rand::RngExt;
 use rand::seq::SliceRandom;
-use tracing::{debug, info, warn};
 use std::collections::hash_map::DefaultHasher;
+use tracing::{debug, info, warn};
 
 use crate::crypto::SecureRandom;
 use crate::network::IpFamily;
@@ -104,7 +104,11 @@ impl MePool {
                     .map(|(ip, port)| SocketAddr::new(*ip, *port))
                     .collect();
                 let dc_endpoints: HashSet<SocketAddr> = dc_addrs.iter().copied().collect();
-                if self.active_writer_count_for_dc_endpoints(*dc, &dc_endpoints).await == 0 {
+                if self
+                    .active_writer_count_for_dc_endpoints(*dc, &dc_endpoints)
+                    .await
+                    == 0
+                {
                     let mut shuffled = dc_addrs.clone();
                     shuffled.shuffle(&mut rand::rng());
                     for addr in shuffled {
@@ -373,7 +377,8 @@ impl MePool {
                 .load(Ordering::Relaxed);
             let pending_map_hash = self.pending_hardswap_map_hash.load(Ordering::Relaxed);
             let pending_age_secs = now_epoch_secs.saturating_sub(pending_started_at);
-            let pending_ttl_expired = pending_started_at > 0 && pending_age_secs > ME_HARDSWAP_PENDING_TTL_SECS;
+            let pending_ttl_expired =
+                pending_started_at > 0 && pending_age_secs > ME_HARDSWAP_PENDING_TTL_SECS;
             let pending_matches_map = pending_map_hash != 0 && pending_map_hash == desired_map_hash;
 
             if pending_generation != 0
@@ -407,7 +412,8 @@ impl MePool {
                     .store(now_epoch_secs, Ordering::Relaxed);
                 self.pending_hardswap_map_hash
                     .store(desired_map_hash, Ordering::Relaxed);
-                self.warm_generation.store(next_generation, Ordering::Relaxed);
+                self.warm_generation
+                    .store(next_generation, Ordering::Relaxed);
                 next_generation
             }
         } else {
@@ -433,7 +439,8 @@ impl MePool {
             self.me_pool_min_fresh_ratio_permille
                 .load(Ordering::Relaxed),
         );
-        let (coverage_ratio, missing_dc) = Self::coverage_ratio(&desired_by_dc, &active_writer_addrs);
+        let (coverage_ratio, missing_dc) =
+            Self::coverage_ratio(&desired_by_dc, &active_writer_addrs);
         let mut route_quorum_ok = coverage_ratio >= min_ratio;
         let mut redundancy_ok = missing_dc.is_empty();
         let mut redundancy_missing_dc = missing_dc.clone();
@@ -487,7 +494,12 @@ impl MePool {
             }
         }
 
-        self.set_last_drain_gate(route_quorum_ok, redundancy_ok, MeDrainGateReason::Open, now_epoch_secs);
+        self.set_last_drain_gate(
+            route_quorum_ok,
+            redundancy_ok,
+            MeDrainGateReason::Open,
+            now_epoch_secs,
+        );
         if !redundancy_ok {
             warn!(
                 missing_dc = ?redundancy_missing_dc,
@@ -541,9 +553,7 @@ impl MePool {
             "ME reinit cycle covered; processing stale writers"
         );
         self.stats.increment_pool_swap_total();
-        let can_drop_with_replacement = self
-            .has_non_draining_writer_per_desired_dc_group()
-            .await;
+        let can_drop_with_replacement = self.has_non_draining_writer_per_desired_dc_group().await;
         if can_drop_with_replacement {
             info!(
                 stale_writers = stale_writer_ids.len(),

@@ -1,6 +1,6 @@
 use super::*;
-use std::time::Instant;
 use crate::crypto::sha256_hmac;
+use std::time::Instant;
 
 /// Helper to create a byte vector of specific length.
 fn make_garbage(len: usize) -> Vec<u8> {
@@ -33,8 +33,7 @@ fn make_valid_tls_handshake_with_session_id(
 
     let digest = make_digest(secret, &handshake, timestamp);
 
-    handshake[TLS_DIGEST_POS..TLS_DIGEST_POS + TLS_DIGEST_LEN]
-        .copy_from_slice(&digest);
+    handshake[TLS_DIGEST_POS..TLS_DIGEST_POS + TLS_DIGEST_LEN].copy_from_slice(&digest);
     handshake
 }
 
@@ -96,15 +95,15 @@ fn extract_sni_with_overlapping_extension_lengths_rejected() {
     h.push(0); // Session ID length: 0
     h.extend_from_slice(&[0x00, 0x02, 0x13, 0x01]); // Cipher suites
     h.extend_from_slice(&[0x01, 0x00]); // Compression
-    
+
     // Extensions start
     h.extend_from_slice(&[0x00, 0x20]); // Total Extensions length: 32
-    
+
     // Extension 1: SNI (type 0)
-    h.extend_from_slice(&[0x00, 0x00]); 
+    h.extend_from_slice(&[0x00, 0x00]);
     h.extend_from_slice(&[0x00, 0x40]); // Claimed len: 64 (OVERFLOWS total extensions len 32)
     h.extend_from_slice(&[0u8; 64]);
-    
+
     assert!(extract_sni_from_client_hello(&h).is_none());
 }
 
@@ -118,19 +117,19 @@ fn extract_sni_with_infinite_loop_potential_extension_rejected() {
     h.push(0); // Session ID length: 0
     h.extend_from_slice(&[0x00, 0x02, 0x13, 0x01]); // Cipher suites
     h.extend_from_slice(&[0x01, 0x00]); // Compression
-    
+
     // Extensions start
     h.extend_from_slice(&[0x00, 0x10]); // Total Extensions length: 16
-    
-    // Extension: zero length but claims more? 
+
+    // Extension: zero length but claims more?
     // If our parser didn't advance, it might loop.
     // Telemt uses `pos += 4 + elen;` so it always advances.
     h.extend_from_slice(&[0x12, 0x34]); // Unknown type
     h.extend_from_slice(&[0x00, 0x00]); // Length 0
-    
+
     // Fill the rest with garbage
     h.extend_from_slice(&[0x42; 12]);
-    
+
     // We expect it to finish without SNI found
     assert!(extract_sni_from_client_hello(&h).is_none());
 }
@@ -143,7 +142,7 @@ fn extract_sni_with_invalid_hostname_rejected() {
     sni.push(0);
     sni.extend_from_slice(&(host.len() as u16).to_be_bytes());
     sni.extend_from_slice(host);
-    
+
     let mut h = vec![0x16, 0x03, 0x03, 0x00, 0x60]; // Record header
     h.push(0x01); // ClientHello
     h.extend_from_slice(&[0x00, 0x00, 0x5C]);
@@ -152,16 +151,19 @@ fn extract_sni_with_invalid_hostname_rejected() {
     h.push(0);
     h.extend_from_slice(&[0x00, 0x02, 0x13, 0x01]);
     h.extend_from_slice(&[0x01, 0x00]);
-    
+
     let mut ext = Vec::new();
     ext.extend_from_slice(&0x0000u16.to_be_bytes());
     ext.extend_from_slice(&(sni.len() as u16).to_be_bytes());
     ext.extend_from_slice(&sni);
-    
+
     h.extend_from_slice(&(ext.len() as u16).to_be_bytes());
     h.extend_from_slice(&ext);
-    
-    assert!(extract_sni_from_client_hello(&h).is_none(), "Invalid SNI hostname must be rejected");
+
+    assert!(
+        extract_sni_from_client_hello(&h).is_none(),
+        "Invalid SNI hostname must be rejected"
+    );
 }
 
 // ------------------------------------------------------------------
@@ -233,7 +235,7 @@ fn is_tls_handshake_robustness_against_probing() {
     assert!(is_tls_handshake(&[0x16, 0x03, 0x01]));
     // Valid TLS 1.2/1.3 ClientHello (Legacy Record Layer)
     assert!(is_tls_handshake(&[0x16, 0x03, 0x03]));
-    
+
     // Invalid record type but matching version
     assert!(!is_tls_handshake(&[0x17, 0x03, 0x03]));
     // Plaintext HTTP request
@@ -247,12 +249,12 @@ fn validate_tls_handshake_at_time_strict_boundary() {
     let secret = b"strict_boundary_secret_32_bytes_";
     let secrets = vec![("u".to_string(), secret.to_vec())];
     let now: i64 = 1_000_000_000;
-    
+
     // Boundary: exactly TIME_SKEW_MAX (120s past)
     let ts_past = (now - TIME_SKEW_MAX) as u32;
     let h = make_valid_tls_handshake_with_session_id(secret, ts_past, &[0x42; 32]);
     assert!(validate_tls_handshake_at_time(&h, &secrets, false, now).is_some());
-    
+
     // Boundary + 1s: should be rejected
     let ts_too_past = (now - TIME_SKEW_MAX - 1) as u32;
     let h2 = make_valid_tls_handshake_with_session_id(secret, ts_too_past, &[0x42; 32]);
@@ -268,14 +270,14 @@ fn extract_sni_with_duplicate_extensions_rejected() {
     sni1.push(0);
     sni1.extend_from_slice(&(host1.len() as u16).to_be_bytes());
     sni1.extend_from_slice(host1);
-    
+
     let host2 = b"second.com";
     let mut sni2 = Vec::new();
     sni2.extend_from_slice(&((host2.len() + 3) as u16).to_be_bytes());
     sni2.push(0);
     sni2.extend_from_slice(&(host2.len() as u16).to_be_bytes());
     sni2.extend_from_slice(host2);
-    
+
     let mut ext = Vec::new();
     // Ext 1: SNI
     ext.extend_from_slice(&0x0000u16.to_be_bytes());
@@ -285,7 +287,7 @@ fn extract_sni_with_duplicate_extensions_rejected() {
     ext.extend_from_slice(&0x0000u16.to_be_bytes());
     ext.extend_from_slice(&(sni2.len() as u16).to_be_bytes());
     ext.extend_from_slice(&sni2);
-    
+
     let mut body = Vec::new();
     body.extend_from_slice(&[0x03, 0x03]);
     body.extend_from_slice(&[0u8; 32]);
@@ -306,7 +308,7 @@ fn extract_sni_with_duplicate_extensions_rejected() {
     h.extend_from_slice(&[0x03, 0x03]);
     h.extend_from_slice(&(handshake.len() as u16).to_be_bytes());
     h.extend_from_slice(&handshake);
-    
+
     // Duplicate SNI extensions are ambiguous and must fail closed.
     assert!(extract_sni_from_client_hello(&h).is_none());
 }
@@ -317,21 +319,26 @@ fn extract_alpn_with_malformed_list_rejected() {
     alpn_payload.extend_from_slice(&0x0005u16.to_be_bytes()); // Total len 5
     alpn_payload.push(10); // Labeled len 10 (OVERFLOWS total 5)
     alpn_payload.extend_from_slice(b"h2");
-    
+
     let mut ext = Vec::new();
     ext.extend_from_slice(&0x0010u16.to_be_bytes()); // Type: ALPN (16)
     ext.extend_from_slice(&(alpn_payload.len() as u16).to_be_bytes());
     ext.extend_from_slice(&alpn_payload);
-    
-    let mut h = vec![0x16, 0x03, 0x03, 0x00, 0x40, 0x01, 0x00, 0x00, 0x3C, 0x03, 0x03];
+
+    let mut h = vec![
+        0x16, 0x03, 0x03, 0x00, 0x40, 0x01, 0x00, 0x00, 0x3C, 0x03, 0x03,
+    ];
     h.extend_from_slice(&[0u8; 32]);
     h.push(0);
     h.extend_from_slice(&[0x00, 0x02, 0x13, 0x01, 0x01, 0x00]);
     h.extend_from_slice(&(ext.len() as u16).to_be_bytes());
     h.extend_from_slice(&ext);
-    
+
     let res = extract_alpn_from_client_hello(&h);
-    assert!(res.is_empty(), "Malformed ALPN list must return empty or fail");
+    assert!(
+        res.is_empty(),
+        "Malformed ALPN list must return empty or fail"
+    );
 }
 
 #[test]
@@ -343,9 +350,9 @@ fn extract_sni_with_huge_extension_header_rejected() {
     h.extend_from_slice(&[0u8; 32]);
     h.push(0);
     h.extend_from_slice(&[0x00, 0x02, 0x13, 0x01, 0x01, 0x00]);
-    
+
     // Extensions start
     h.extend_from_slice(&[0xFF, 0xFF]); // Total extensions: 65535 (OVERFLOWS everything)
-    
+
     assert!(extract_sni_from_client_hello(&h).is_none());
 }

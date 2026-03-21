@@ -7,7 +7,7 @@ use crate::config::{UpstreamConfig, UpstreamType};
 use crate::protocol::constants::{MAX_TLS_PLAINTEXT_SIZE, MIN_TLS_CLIENT_HELLO_SIZE};
 use std::net::SocketAddr;
 use std::time::Duration;
-use tokio::io::{duplex, AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, duplex};
 use tokio::net::TcpListener;
 
 fn test_probe_for_len(len: usize) -> [u8; 5] {
@@ -100,7 +100,10 @@ async fn run_probe_and_assert_masking(len: usize, expect_bad_increment: bool) {
     client_side.write_all(&probe).await.unwrap();
     let mut observed = vec![0u8; backend_reply.len()];
     client_side.read_exact(&mut observed).await.unwrap();
-    assert_eq!(observed, backend_reply, "invalid TLS path must be masked as a real site");
+    assert_eq!(
+        observed, backend_reply,
+        "invalid TLS path must be masked as a real site"
+    );
 
     drop(client_side);
     let _ = tokio::time::timeout(Duration::from_secs(3), handler)
@@ -109,7 +112,11 @@ async fn run_probe_and_assert_masking(len: usize, expect_bad_increment: bool) {
         .unwrap();
     accept_task.await.unwrap();
 
-    let expected_bad = if expect_bad_increment { bad_before + 1 } else { bad_before };
+    let expected_bad = if expect_bad_increment {
+        bad_before + 1
+    } else {
+        bad_before
+    };
     assert_eq!(
         stats.get_connects_bad(),
         expected_bad,
@@ -187,7 +194,9 @@ fn tls_client_hello_len_bounds_stress_many_evaluations() {
     for _ in 0..100_000 {
         assert!(tls_clienthello_len_in_bounds(MIN_TLS_CLIENT_HELLO_SIZE));
         assert!(tls_clienthello_len_in_bounds(MAX_TLS_PLAINTEXT_SIZE));
-        assert!(!tls_clienthello_len_in_bounds(MIN_TLS_CLIENT_HELLO_SIZE - 1));
+        assert!(!tls_clienthello_len_in_bounds(
+            MIN_TLS_CLIENT_HELLO_SIZE - 1
+        ));
         assert!(!tls_clienthello_len_in_bounds(MAX_TLS_PLAINTEXT_SIZE + 1));
     }
 }

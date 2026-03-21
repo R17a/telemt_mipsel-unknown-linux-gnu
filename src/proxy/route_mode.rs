@@ -119,9 +119,7 @@ pub(crate) fn affected_cutover_state(
 }
 
 pub(crate) fn cutover_stagger_delay(session_id: u64, generation: u64) -> Duration {
-    let mut value = session_id
-        ^ generation.rotate_left(17)
-        ^ 0x9e37_79b9_7f4a_7c15;
+    let mut value = session_id ^ generation.rotate_left(17) ^ 0x9e37_79b9_7f4a_7c15;
     value ^= value >> 30;
     value = value.wrapping_mul(0xbf58_476d_1ce4_e5b9);
     value ^= value >> 27;

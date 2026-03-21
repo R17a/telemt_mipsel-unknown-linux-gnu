@@ -51,21 +51,19 @@
 //! - `poll_write` on client = S→C (to client)     → `octets_to`, `msgs_to`
 //! - `SharedCounters` (atomics) let the watchdog read stats without locking
 
-use std::io;
-use std::pin::Pin;
-use std::sync::{Arc, Mutex, OnceLock};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::task::{Context, Poll};
-use std::time::Duration;
-use dashmap::DashMap;
-use tokio::io::{
-    AsyncRead, AsyncWrite, AsyncWriteExt, ReadBuf, copy_bidirectional_with_sizes,
-};
-use tokio::time::Instant;
-use tracing::{debug, trace, warn};
 use crate::error::{ProxyError, Result};
 use crate::stats::Stats;
 use crate::stream::BufferPool;
+use dashmap::DashMap;
+use std::io;
+use std::pin::Pin;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, OnceLock};
+use std::task::{Context, Poll};
+use std::time::Duration;
+use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, ReadBuf, copy_bidirectional_with_sizes};
+use tokio::time::Instant;
+use tracing::{debug, trace, warn};
 
 // ============= Constants =============
 
@@ -251,7 +249,8 @@ impl<S> StatsIo<S> {
 impl<S> Drop for StatsIo<S> {
     fn drop(&mut self) {
         self.quota_read_retry_active.store(false, Ordering::Relaxed);
-        self.quota_write_retry_active.store(false, Ordering::Relaxed);
+        self.quota_write_retry_active
+            .store(false, Ordering::Relaxed);
     }
 }
 
@@ -428,7 +427,9 @@ impl<S: AsyncRead + Unpin> AsyncRead for StatsIo<S> {
                     }
 
                     // C→S: client sent data
-                    this.counters.c2s_bytes.fetch_add(n as u64, Ordering::Relaxed);
+                    this.counters
+                        .c2s_bytes
+                        .fetch_add(n as u64, Ordering::Relaxed);
                     this.counters.c2s_ops.fetch_add(1, Ordering::Relaxed);
                     this.counters.touch(Instant::now(), this.epoch);
 
@@ -467,7 +468,8 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for StatsIo<S> {
             match lock.try_lock() {
                 Ok(guard) => {
                     this.quota_write_wake_scheduled = false;
-                    this.quota_write_retry_active.store(false, Ordering::Relaxed);
+                    this.quota_write_retry_active
+                        .store(false, Ordering::Relaxed);
                     Some(guard)
                 }
                 Err(_) => {
@@ -509,7 +511,9 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for StatsIo<S> {
             Poll::Ready(Ok(n)) => {
                 if n > 0 {
                     // S→C: data written to client
-                    this.counters.s2c_bytes.fetch_add(n as u64, Ordering::Relaxed);
+                    this.counters
+                        .s2c_bytes
+                        .fetch_add(n as u64, Ordering::Relaxed);
                     this.counters.s2c_ops.fetch_add(1, Ordering::Relaxed);
                     this.counters.touch(Instant::now(), this.epoch);
 

@@ -3,7 +3,7 @@ use crate::config::{UpstreamConfig, UpstreamType};
 use crate::crypto::sha256_hmac;
 use crate::protocol::constants::{HANDSHAKE_LEN, TLS_VERSION};
 use crate::protocol::tls;
-use tokio::io::{duplex, AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, duplex};
 use tokio::net::TcpListener;
 use tokio::time::{Duration, Instant};
 
@@ -55,7 +55,10 @@ fn build_harness(config: ProxyConfig) -> PipelineHarness {
 }
 
 fn make_valid_tls_client_hello(secret: &[u8], timestamp: u32, tls_len: usize, fill: u8) -> Vec<u8> {
-    assert!(tls_len <= u16::MAX as usize, "TLS length must fit into record header");
+    assert!(
+        tls_len <= u16::MAX as usize,
+        "TLS length must fit into record header"
+    );
 
     let total_len = 5 + tls_len;
     let mut handshake = vec![fill; total_len];
@@ -150,7 +153,10 @@ async fn masking_runs_outside_handshake_timeout_budget_with_high_reject_delay() 
         .unwrap()
         .unwrap();
 
-    assert!(result.is_ok(), "bad-client fallback must not be canceled by handshake timeout");
+    assert!(
+        result.is_ok(),
+        "bad-client fallback must not be canceled by handshake timeout"
+    );
     assert_eq!(
         stats.get_handshake_timeouts(),
         0,
@@ -175,10 +181,10 @@ async fn tls_mtproto_bad_client_does_not_reinject_clienthello_into_mask_backend(
     config.censorship.mask_port = backend_addr.port();
     config.censorship.mask_proxy_protocol = 0;
     config.access.ignore_time_skew = true;
-    config
-        .access
-        .users
-        .insert("user".to_string(), "d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0".to_string());
+    config.access.users.insert(
+        "user".to_string(),
+        "d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0".to_string(),
+    );
 
     let harness = build_harness(config);
 
@@ -194,8 +200,7 @@ async fn tls_mtproto_bad_client_does_not_reinject_clienthello_into_mask_backend(
         let mut got = vec![0u8; expected_trailing.len()];
         stream.read_exact(&mut got).await.unwrap();
         assert_eq!(
-            got,
-            expected_trailing,
+            got, expected_trailing,
             "mask backend must receive only post-handshake trailing TLS records"
         );
     });
@@ -223,11 +228,17 @@ async fn tls_mtproto_bad_client_does_not_reinject_clienthello_into_mask_backend(
     client_side.write_all(&client_hello).await.unwrap();
 
     let mut tls_response_head = [0u8; 5];
-    client_side.read_exact(&mut tls_response_head).await.unwrap();
+    client_side
+        .read_exact(&mut tls_response_head)
+        .await
+        .unwrap();
     assert_eq!(tls_response_head[0], 0x16);
     read_and_discard_tls_record_body(&mut client_side, tls_response_head).await;
 
-    client_side.write_all(&invalid_mtproto_record).await.unwrap();
+    client_side
+        .write_all(&invalid_mtproto_record)
+        .await
+        .unwrap();
     client_side.write_all(&trailing_record).await.unwrap();
 
     tokio::time::timeout(Duration::from_secs(3), accept_task)

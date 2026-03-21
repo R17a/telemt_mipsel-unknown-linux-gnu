@@ -1,6 +1,6 @@
-use std::collections::HashMap;
 use ipnetwork::IpNetwork;
 use serde::Deserialize;
+use std::collections::HashMap;
 
 // Helper defaults kept private to the config module.
 const DEFAULT_NETWORK_IPV6: Option<bool> = Some(false);
@@ -143,10 +143,7 @@ pub(crate) fn default_weight() -> u16 {
 }
 
 pub(crate) fn default_metrics_whitelist() -> Vec<IpNetwork> {
-    vec![
-        "127.0.0.1/32".parse().unwrap(),
-        "::1/128".parse().unwrap(),
-    ]
+    vec!["127.0.0.1/32".parse().unwrap(), "::1/128".parse().unwrap()]
 }
 
 pub(crate) fn default_api_listen() -> String {
@@ -169,10 +166,18 @@ pub(crate) fn default_api_minimal_runtime_cache_ttl_ms() -> u64 {
     1000
 }
 
-pub(crate) fn default_api_runtime_edge_enabled() -> bool { false }
-pub(crate) fn default_api_runtime_edge_cache_ttl_ms() -> u64 { 1000 }
-pub(crate) fn default_api_runtime_edge_top_n() -> usize { 10 }
-pub(crate) fn default_api_runtime_edge_events_capacity() -> usize { 256 }
+pub(crate) fn default_api_runtime_edge_enabled() -> bool {
+    false
+}
+pub(crate) fn default_api_runtime_edge_cache_ttl_ms() -> u64 {
+    1000
+}
+pub(crate) fn default_api_runtime_edge_top_n() -> usize {
+    10
+}
+pub(crate) fn default_api_runtime_edge_events_capacity() -> usize {
+    256
+}
 
 pub(crate) fn default_proxy_protocol_header_timeout_ms() -> u64 {
     500

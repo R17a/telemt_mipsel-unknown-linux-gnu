@@ -1,27 +1,27 @@
 use super::*;
-use crate::proxy::handshake::HandshakeSuccess;
-use crate::proxy::route_mode::{RelayRouteMode, RouteRuntimeController};
-use bytes::Bytes;
+use crate::config::{GeneralConfig, MeRouteNoWriterMode, MeSocksKdfPolicy, MeWriterPickMode};
 use crate::crypto::AesCtr;
 use crate::crypto::SecureRandom;
-use crate::config::{GeneralConfig, MeRouteNoWriterMode, MeSocksKdfPolicy, MeWriterPickMode};
 use crate::network::probe::NetworkDecision;
+use crate::proxy::handshake::HandshakeSuccess;
+use crate::proxy::route_mode::{RelayRouteMode, RouteRuntimeController};
 use crate::stats::Stats;
 use crate::stream::{BufferPool, CryptoReader, CryptoWriter, PooledBuffer};
 use crate::transport::middle_proxy::MePool;
+use bytes::Bytes;
 use rand::rngs::StdRng;
 use rand::{RngExt, SeedableRng};
 use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::{Mutex, OnceLock};
 use std::thread;
-use tokio::sync::Barrier;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
 use tokio::io::duplex;
+use tokio::sync::Barrier;
 use tokio::time::{Duration as TokioDuration, timeout};
-use std::sync::{Mutex, OnceLock};
 
 fn make_pooled_payload(data: &[u8]) -> PooledBuffer {
     let pool = Arc::new(BufferPool::with_config(data.len().max(1), 4));
@@ -46,8 +46,14 @@ fn quota_user_lock_test_lock() -> &'static Mutex<()> {
 #[test]
 fn should_yield_sender_only_on_budget_with_backlog() {
     assert!(!should_yield_c2me_sender(0, true));
-    assert!(!should_yield_c2me_sender(C2ME_SENDER_FAIRNESS_BUDGET - 1, true));
-    assert!(!should_yield_c2me_sender(C2ME_SENDER_FAIRNESS_BUDGET, false));
+    assert!(!should_yield_c2me_sender(
+        C2ME_SENDER_FAIRNESS_BUDGET - 1,
+        true
+    ));
+    assert!(!should_yield_c2me_sender(
+        C2ME_SENDER_FAIRNESS_BUDGET,
+        false
+    ));
     assert!(should_yield_c2me_sender(C2ME_SENDER_FAIRNESS_BUDGET, true));
 }
 
@@ -125,14 +131,7 @@ async fn enqueue_c2me_command_closed_channel_recycles_payload() {
     let (tx, rx) = mpsc::channel::<C2MeCommand>(1);
     drop(rx);
 
-    let result = enqueue_c2me_command(
-        &tx,
-        C2MeCommand::Data {
-            payload,
-            flags: 0,
-        },
-    )
-    .await;
+    let result = enqueue_c2me_command(&tx, C2MeCommand::Data { payload, flags: 0 }).await;
 
     assert!(result.is_err(), "closed queue must fail enqueue");
     drop(result);
@@ -314,9 +313,7 @@ fn quota_user_lock_cache_saturation_returns_ephemeral_lock_without_growth() {
         return;
     }
 
-    panic!(
-        "unable to observe stable saturated lock-cache precondition after bounded retries"
-    );
+    panic!("unable to observe stable saturated lock-cache precondition after bounded retries");
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -390,14 +387,7 @@ async fn stress_quota_race_under_lock_cache_saturation_never_allows_double_succe
             12_000 + round,
             barrier.clone(),
         );
-        let two = run_quota_race_attempt(
-            &stats,
-            &bytes_me2c,
-            &user,
-            0x72,
-            13_000 + round,
-            barrier,
-        );
+        let two = run_quota_race_attempt(&stats, &bytes_me2c, &user, 0x72, 13_000 + round, barrier);
 
         let (r1, r2) = tokio::join!(one, two);
         assert!(
@@ -823,7 +813,9 @@ fn full_cache_gate_lock_poison_is_fail_closed_without_panic() {
     // Poison the full-cache gate lock intentionally.
     let gate = DESYNC_FULL_CACHE_LAST_EMIT_AT.get_or_init(|| Mutex::new(None));
     let _ = std::panic::catch_unwind(|| {
-        let _lock = gate.lock().expect("gate lock must be lockable before poison");
+        let _lock = gate
+            .lock()
+            .expect("gate lock must be lockable before poison");
         panic!("intentional gate poison for fail-closed regression");
     });
 
@@ -1208,7 +1200,11 @@ async fn read_client_payload_large_intermediate_frame_is_exact() {
 
     let (frame, quickack) = read;
     assert!(!quickack, "quickack flag must be unset");
-    assert_eq!(frame.len(), payload_len, "payload size must match wire length");
+    assert_eq!(
+        frame.len(),
+        payload_len,
+        "payload size must match wire length"
+    );
     for (idx, byte) in frame.iter().enumerate() {
         assert_eq!(*byte, (idx as u8).wrapping_mul(31));
     }
@@ -1376,7 +1372,10 @@ async fn read_client_payload_abridged_extended_len_sets_quickack() {
     .expect("frame must be present");
 
     let (frame, quickack) = read;
-    assert!(quickack, "quickack bit must be propagated from abridged header");
+    assert!(
+        quickack,
+        "quickack bit must be propagated from abridged header"
+    );
     assert_eq!(frame.len(), payload_len);
     assert_eq!(frame_counter, 1, "one abridged frame must be counted");
 }
@@ -1436,7 +1435,11 @@ async fn read_client_payload_keeps_pool_buffer_checked_out_until_frame_drop() {
 
     let pool = Arc::new(BufferPool::with_config(64, 2));
     pool.preallocate(1);
-    assert_eq!(pool.stats().pooled, 1, "one pooled buffer must be available");
+    assert_eq!(
+        pool.stats().pooled,
+        1,
+        "one pooled buffer must be available"
+    );
 
     let (reader, mut writer) = duplex(1024);
     let mut crypto_reader = make_crypto_reader(reader);
@@ -1491,7 +1494,8 @@ async fn enqueue_c2me_close_unblocks_after_queue_drain() {
     .unwrap();
 
     let tx2 = tx.clone();
-    let close_task = tokio::spawn(async move { enqueue_c2me_command(&tx2, C2MeCommand::Close).await });
+    let close_task =
+        tokio::spawn(async move { enqueue_c2me_command(&tx2, C2MeCommand::Close).await });
 
     tokio::time::sleep(TokioDuration::from_millis(10)).await;
 
@@ -1501,7 +1505,10 @@ async fn enqueue_c2me_close_unblocks_after_queue_drain() {
         .expect("first queued item must be present");
     assert!(matches!(first, C2MeCommand::Data { .. }));
 
-    close_task.await.unwrap().expect("close enqueue must succeed after drain");
+    close_task
+        .await
+        .unwrap()
+        .expect("close enqueue must succeed after drain");
 
     let second = timeout(TokioDuration::from_millis(100), rx.recv())
         .await
@@ -1521,7 +1528,8 @@ async fn enqueue_c2me_close_full_then_receiver_drop_fails_cleanly() {
     .unwrap();
 
     let tx2 = tx.clone();
-    let close_task = tokio::spawn(async move { enqueue_c2me_command(&tx2, C2MeCommand::Close).await });
+    let close_task =
+        tokio::spawn(async move { enqueue_c2me_command(&tx2, C2MeCommand::Close).await });
 
     tokio::time::sleep(TokioDuration::from_millis(10)).await;
     drop(rx);
@@ -1756,7 +1764,8 @@ async fn process_me_writer_response_concurrent_same_user_quota_does_not_overshoo
 }
 
 #[tokio::test]
-async fn process_me_writer_response_data_does_not_forward_partial_payload_when_remaining_quota_is_smaller_than_message() {
+async fn process_me_writer_response_data_does_not_forward_partial_payload_when_remaining_quota_is_smaller_than_message()
+ {
     let (writer_side, mut reader_side) = duplex(1024);
     let mut writer = make_crypto_writer(writer_side);
     let rng = SecureRandom::new();
@@ -1851,11 +1860,17 @@ async fn middle_relay_abort_midflight_releases_route_gauge() {
         }
     })
     .await;
-    assert!(started.is_ok(), "middle relay must increment route gauge before abort");
+    assert!(
+        started.is_ok(),
+        "middle relay must increment route gauge before abort"
+    );
 
     relay_task.abort();
     let joined = relay_task.await;
-    assert!(joined.is_err(), "aborted middle relay task must return join error");
+    assert!(
+        joined.is_err(),
+        "aborted middle relay task must return join error"
+    );
 
     tokio::time::sleep(TokioDuration::from_millis(20)).await;
     assert_eq!(
@@ -2014,8 +2029,14 @@ async fn abridged_max_extended_length_fails_closed_without_panic_or_partial_read
     )
     .await;
 
-    assert!(result.is_err(), "oversized abridged length must fail closed");
-    assert_eq!(frame_counter, 0, "oversized frame must not be counted as accepted");
+    assert!(
+        result.is_err(),
+        "oversized abridged length must fail closed"
+    );
+    assert_eq!(
+        frame_counter, 0,
+        "oversized frame must not be counted as accepted"
+    );
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -2067,14 +2088,7 @@ async fn stress_quota_race_bursts_never_allow_double_success_per_round() {
             6000 + round,
             barrier.clone(),
         );
-        let two = run_quota_race_attempt(
-            &stats,
-            &bytes_me2c,
-            &user,
-            0x44,
-            7000 + round,
-            barrier,
-        );
+        let two = run_quota_race_attempt(&stats, &bytes_me2c, &user, 0x44, 7000 + round, barrier);
 
         let (r1, r2) = tokio::join!(one, two);
         assert!(
@@ -2274,18 +2288,18 @@ async fn secure_padding_distribution_in_relay_writer() {
 async fn negative_middle_end_connection_lost_during_relay_exits_on_client_eof() {
     let (client_reader_side, client_writer_side) = duplex(1024);
     let (_relay_reader_side, relay_writer_side) = duplex(1024);
-    
+
     let key = [0u8; 32];
     let iv = 0u128;
     let crypto_reader = CryptoReader::new(client_reader_side, AesCtr::new(&key, iv));
     let crypto_writer = CryptoWriter::new(relay_writer_side, AesCtr::new(&key, iv), 1024);
-    
+
     let stats = Arc::new(Stats::new());
     let config = Arc::new(ProxyConfig::default());
     let buffer_pool = Arc::new(BufferPool::with_config(1024, 1));
     let rng = Arc::new(SecureRandom::new());
     let route_runtime = RouteRuntimeController::new(RelayRouteMode::Middle);
-    
+
     // Create an ME pool.
     let me_pool = make_me_pool_for_abort_test(stats.clone()).await;
 
@@ -2296,7 +2310,7 @@ async fn negative_middle_end_connection_lost_during_relay_exits_on_client_eof() 
     drop(probe_rx);
     me_pool.registry().unregister(probe_conn_id).await;
     let target_conn_id = probe_conn_id.wrapping_add(1);
-    
+
     let success = HandshakeSuccess {
         user: "test-user".to_string(),
         peer: "127.0.0.1:12345".parse().unwrap(),

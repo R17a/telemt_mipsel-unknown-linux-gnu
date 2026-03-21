@@ -56,7 +56,10 @@ fn direct_connection_lease_balances_on_panic_unwind() {
         panic!("intentional panic to verify lease drop path");
     }));
 
-    assert!(panic_result.is_err(), "panic must propagate from test closure");
+    assert!(
+        panic_result.is_err(),
+        "panic must propagate from test closure"
+    );
     assert_eq!(
         stats.get_current_connections_direct(),
         0,
@@ -74,7 +77,10 @@ fn middle_connection_lease_balances_on_panic_unwind() {
         panic!("intentional panic to verify middle lease drop path");
     }));
 
-    assert!(panic_result.is_err(), "panic must propagate from test closure");
+    assert!(
+        panic_result.is_err(),
+        "panic must propagate from test closure"
+    );
     assert_eq!(
         stats.get_current_connections_me(),
         0,
@@ -109,9 +115,7 @@ async fn concurrent_mixed_route_lease_churn_balances_to_zero() {
     }
 
     for worker in workers {
-        worker
-            .await
-            .expect("lease churn worker must not panic");
+        worker.await.expect("lease churn worker must not panic");
     }
 
     assert_eq!(
@@ -168,7 +172,9 @@ async fn abort_storm_mixed_route_leases_returns_all_gauges_to_zero() {
 
     tokio::time::timeout(Duration::from_secs(2), async {
         loop {
-            if stats.get_current_connections_direct() == 0 && stats.get_current_connections_me() == 0 {
+            if stats.get_current_connections_direct() == 0
+                && stats.get_current_connections_me() == 0
+            {
                 break;
             }
             tokio::time::sleep(Duration::from_millis(10)).await;
@@ -197,9 +203,7 @@ fn saturating_route_decrements_do_not_underflow_under_race() {
     }
 
     for worker in workers {
-        worker
-            .join()
-            .expect("decrement race worker must not panic");
+        worker.join().expect("decrement race worker must not panic");
     }
 
     assert_eq!(

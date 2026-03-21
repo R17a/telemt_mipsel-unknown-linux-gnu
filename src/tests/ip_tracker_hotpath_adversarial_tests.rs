@@ -6,7 +6,12 @@ use crate::config::UserMaxUniqueIpsMode;
 use crate::ip_tracker::UserIpTracker;
 
 fn ip_from_idx(idx: u32) -> IpAddr {
-    IpAddr::V4(Ipv4Addr::new(10, ((idx >> 16) & 0xff) as u8, ((idx >> 8) & 0xff) as u8, (idx & 0xff) as u8))
+    IpAddr::V4(Ipv4Addr::new(
+        10,
+        ((idx >> 16) & 0xff) as u8,
+        ((idx >> 8) & 0xff) as u8,
+        (idx & 0xff) as u8,
+    ))
 }
 
 #[tokio::test]
@@ -67,7 +72,9 @@ async fn hotpath_parallel_unique_ip_limit_never_exceeds_cap() {
     let mut tasks = Vec::new();
     for idx in 0..64u32 {
         let t = tracker.clone();
-        tasks.push(tokio::spawn(async move { t.check_and_add("limit", ip_from_idx(idx)).await.is_ok() }));
+        tasks.push(tokio::spawn(async move {
+            t.check_and_add("limit", ip_from_idx(idx)).await.is_ok()
+        }));
     }
 
     let mut admitted = 0usize;
@@ -77,7 +84,10 @@ async fn hotpath_parallel_unique_ip_limit_never_exceeds_cap() {
         }
     }
 
-    assert!(admitted <= 5, "admitted unique IPs must not exceed configured cap");
+    assert!(
+        admitted <= 5,
+        "admitted unique IPs must not exceed configured cap"
+    );
     assert!(tracker.get_active_ip_count("limit").await <= 5);
 }
 

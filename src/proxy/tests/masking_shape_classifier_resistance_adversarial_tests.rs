@@ -1,5 +1,5 @@
 use super::*;
-use tokio::io::{duplex, AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, duplex};
 use tokio::net::TcpListener;
 use tokio::time::Duration;
 
@@ -90,9 +90,7 @@ fn nearest_centroid_classifier_accuracy(
     samples_b: &[usize],
     samples_c: &[usize],
 ) -> f64 {
-    let mean = |xs: &[usize]| -> f64 {
-        xs.iter().copied().sum::<usize>() as f64 / xs.len() as f64
-    };
+    let mean = |xs: &[usize]| -> f64 { xs.iter().copied().sum::<usize>() as f64 / xs.len() as f64 };
 
     let ca = mean(samples_a);
     let cb = mean(samples_b);
@@ -104,11 +102,7 @@ fn nearest_centroid_classifier_accuracy(
     for &x in samples_a {
         total += 1;
         let xf = x as f64;
-        let d = [
-            (xf - ca).abs(),
-            (xf - cb).abs(),
-            (xf - cc).abs(),
-        ];
+        let d = [(xf - ca).abs(), (xf - cb).abs(), (xf - cc).abs()];
         if d[0] <= d[1] && d[0] <= d[2] {
             correct += 1;
         }
@@ -117,11 +111,7 @@ fn nearest_centroid_classifier_accuracy(
     for &x in samples_b {
         total += 1;
         let xf = x as f64;
-        let d = [
-            (xf - ca).abs(),
-            (xf - cb).abs(),
-            (xf - cc).abs(),
-        ];
+        let d = [(xf - ca).abs(), (xf - cb).abs(), (xf - cc).abs()];
         if d[1] <= d[0] && d[1] <= d[2] {
             correct += 1;
         }
@@ -130,11 +120,7 @@ fn nearest_centroid_classifier_accuracy(
     for &x in samples_c {
         total += 1;
         let xf = x as f64;
-        let d = [
-            (xf - ca).abs(),
-            (xf - cb).abs(),
-            (xf - cc).abs(),
-        ];
+        let d = [(xf - ca).abs(), (xf - cb).abs(), (xf - cc).abs()];
         if d[2] <= d[0] && d[2] <= d[1] {
             correct += 1;
         }
@@ -166,7 +152,10 @@ async fn masking_shape_classifier_resistance_blur_reduces_threshold_attack_accur
     let hardened_acc = best_threshold_accuracy(&hardened_a, &hardened_b);
 
     // Baseline classes are deterministic/non-overlapping -> near-perfect threshold attack.
-    assert!(baseline_acc >= 0.99, "baseline separability unexpectedly low: {baseline_acc:.3}");
+    assert!(
+        baseline_acc >= 0.99,
+        "baseline separability unexpectedly low: {baseline_acc:.3}"
+    );
     // Blur must materially reduce the best one-dimensional length classifier.
     assert!(
         hardened_acc <= 0.90,
@@ -247,7 +236,11 @@ async fn masking_shape_classifier_resistance_edge_max_extra_one_has_two_point_su
         seen.insert(observed);
     }
 
-    assert_eq!(seen.len(), 2, "both support points should appear under repeated sampling");
+    assert_eq!(
+        seen.len(),
+        2,
+        "both support points should appear under repeated sampling"
+    );
 }
 
 #[tokio::test]
@@ -262,13 +255,25 @@ async fn masking_shape_classifier_resistance_negative_blur_without_shape_hardeni
         bs_observed.insert(capture_forwarded_len(BODY_B, false, true, 96).await);
     }
 
-    assert_eq!(as_observed.len(), 1, "without shape hardening class A must stay deterministic");
-    assert_eq!(bs_observed.len(), 1, "without shape hardening class B must stay deterministic");
-    assert_ne!(as_observed, bs_observed, "distinct classes should remain separable without shaping");
+    assert_eq!(
+        as_observed.len(),
+        1,
+        "without shape hardening class A must stay deterministic"
+    );
+    assert_eq!(
+        bs_observed.len(),
+        1,
+        "without shape hardening class B must stay deterministic"
+    );
+    assert_ne!(
+        as_observed, bs_observed,
+        "distinct classes should remain separable without shaping"
+    );
 }
 
 #[tokio::test]
-async fn masking_shape_classifier_resistance_adversarial_three_class_centroid_attack_degrades_with_blur() {
+async fn masking_shape_classifier_resistance_adversarial_three_class_centroid_attack_degrades_with_blur()
+ {
     const SAMPLES: usize = 80;
     const MAX_EXTRA: usize = 96;
     const C1: usize = 5000;
@@ -295,13 +300,23 @@ async fn masking_shape_classifier_resistance_adversarial_three_class_centroid_at
     let base_acc = nearest_centroid_classifier_accuracy(&base1, &base2, &base3);
     let hard_acc = nearest_centroid_classifier_accuracy(&hard1, &hard2, &hard3);
 
-    assert!(base_acc >= 0.99, "baseline centroid separability should be near-perfect");
-    assert!(hard_acc <= 0.88, "blur should materially degrade 3-class centroid attack");
-    assert!(hard_acc <= base_acc - 0.1, "accuracy drop should be meaningful");
+    assert!(
+        base_acc >= 0.99,
+        "baseline centroid separability should be near-perfect"
+    );
+    assert!(
+        hard_acc <= 0.88,
+        "blur should materially degrade 3-class centroid attack"
+    );
+    assert!(
+        hard_acc <= base_acc - 0.1,
+        "accuracy drop should be meaningful"
+    );
 }
 
 #[tokio::test]
-async fn masking_shape_classifier_resistance_light_fuzz_bounds_hold_for_randomized_above_cap_campaign() {
+async fn masking_shape_classifier_resistance_light_fuzz_bounds_hold_for_randomized_above_cap_campaign()
+ {
     let mut s: u64 = 0xDEAD_BEEF_CAFE_BABE;
     for _ in 0..96 {
         s ^= s << 7;

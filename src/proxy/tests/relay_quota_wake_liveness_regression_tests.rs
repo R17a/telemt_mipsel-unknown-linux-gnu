@@ -186,7 +186,10 @@ async fn integration_parallel_waiters_resume_after_single_release_event() {
     timeout(Duration::from_secs(1), async {
         for waiter in waiters {
             let outcome = waiter.await.expect("waiter must not panic");
-            assert!(outcome.is_ok(), "waiter must resume and complete after release");
+            assert!(
+                outcome.is_ok(),
+                "waiter must resume and complete after release"
+            );
         }
     })
     .await
@@ -235,7 +238,10 @@ async fn light_fuzz_release_timing_matrix_preserves_liveness() {
             .await
             .expect("fuzz round writer must complete")
             .expect("fuzz writer task must not panic");
-        assert!(done.is_ok(), "fuzz round writer must not stall after release");
+        assert!(
+            done.is_ok(),
+            "fuzz round writer must not stall after release"
+        );
     }
 }
 

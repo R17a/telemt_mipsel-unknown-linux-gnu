@@ -1,7 +1,9 @@
 use std::collections::{HashMap, HashSet};
 use std::net::{IpAddr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU8, AtomicU32, AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{
+    AtomicBool, AtomicI32, AtomicU8, AtomicU32, AtomicU64, AtomicUsize, Ordering,
+};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use tokio::sync::{Mutex, Notify, RwLock, mpsc};
@@ -547,7 +549,9 @@ impl MePool {
             me_instadrain: AtomicBool::new(me_instadrain),
             me_pool_drain_threshold: AtomicU64::new(me_pool_drain_threshold),
             me_pool_drain_soft_evict_enabled: AtomicBool::new(me_pool_drain_soft_evict_enabled),
-            me_pool_drain_soft_evict_grace_secs: AtomicU64::new(me_pool_drain_soft_evict_grace_secs),
+            me_pool_drain_soft_evict_grace_secs: AtomicU64::new(
+                me_pool_drain_soft_evict_grace_secs,
+            ),
             me_pool_drain_soft_evict_per_writer: AtomicU8::new(
                 me_pool_drain_soft_evict_per_writer.max(1),
             ),
@@ -751,10 +755,7 @@ impl MePool {
     }
 
     pub(crate) fn last_drain_gate_block_reason(&self) -> MeDrainGateReason {
-        MeDrainGateReason::from_u8(
-            self.me_last_drain_gate_block_reason
-                .load(Ordering::Relaxed),
-        )
+        MeDrainGateReason::from_u8(self.me_last_drain_gate_block_reason.load(Ordering::Relaxed))
     }
 
     pub(crate) fn last_drain_gate_updated_at_epoch_secs(&self) -> u64 {
@@ -873,14 +874,18 @@ impl MePool {
             .store(floor_mode.as_u8(), Ordering::Relaxed);
         self.me_adaptive_floor_idle_secs
             .store(adaptive_floor_idle_secs, Ordering::Relaxed);
-        self.me_adaptive_floor_min_writers_single_endpoint
-            .store(adaptive_floor_min_writers_single_endpoint, Ordering::Relaxed);
+        self.me_adaptive_floor_min_writers_single_endpoint.store(
+            adaptive_floor_min_writers_single_endpoint,
+            Ordering::Relaxed,
+        );
         self.me_adaptive_floor_min_writers_multi_endpoint
             .store(adaptive_floor_min_writers_multi_endpoint, Ordering::Relaxed);
         self.me_adaptive_floor_recover_grace_secs
             .store(adaptive_floor_recover_grace_secs, Ordering::Relaxed);
-        self.me_adaptive_floor_writers_per_core_total
-            .store(adaptive_floor_writers_per_core_total as u32, Ordering::Relaxed);
+        self.me_adaptive_floor_writers_per_core_total.store(
+            adaptive_floor_writers_per_core_total as u32,
+            Ordering::Relaxed,
+        );
         self.me_adaptive_floor_cpu_cores_override
             .store(adaptive_floor_cpu_cores_override as u32, Ordering::Relaxed);
         self.me_adaptive_floor_max_extra_writers_single_per_core
@@ -893,16 +898,14 @@ impl MePool {
                 adaptive_floor_max_extra_writers_multi_per_core as u32,
                 Ordering::Relaxed,
             );
-        self.me_adaptive_floor_max_active_writers_per_core
-            .store(
-                adaptive_floor_max_active_writers_per_core as u32,
-                Ordering::Relaxed,
-            );
-        self.me_adaptive_floor_max_warm_writers_per_core
-            .store(
-                adaptive_floor_max_warm_writers_per_core as u32,
-                Ordering::Relaxed,
-            );
+        self.me_adaptive_floor_max_active_writers_per_core.store(
+            adaptive_floor_max_active_writers_per_core as u32,
+            Ordering::Relaxed,
+        );
+        self.me_adaptive_floor_max_warm_writers_per_core.store(
+            adaptive_floor_max_warm_writers_per_core as u32,
+            Ordering::Relaxed,
+        );
         self.me_adaptive_floor_max_active_writers_global
             .store(adaptive_floor_max_active_writers_global, Ordering::Relaxed);
         self.me_adaptive_floor_max_warm_writers_global
@@ -1571,11 +1574,19 @@ impl MePool {
     }
 
     pub(super) fn health_interval_unhealthy(&self) -> Duration {
-        Duration::from_millis(self.me_health_interval_ms_unhealthy.load(Ordering::Relaxed).max(1))
+        Duration::from_millis(
+            self.me_health_interval_ms_unhealthy
+                .load(Ordering::Relaxed)
+                .max(1),
+        )
     }
 
     pub(super) fn health_interval_healthy(&self) -> Duration {
-        Duration::from_millis(self.me_health_interval_ms_healthy.load(Ordering::Relaxed).max(1))
+        Duration::from_millis(
+            self.me_health_interval_ms_healthy
+                .load(Ordering::Relaxed)
+                .max(1),
+        )
     }
 
     pub(super) fn warn_rate_limit_duration(&self) -> Duration {

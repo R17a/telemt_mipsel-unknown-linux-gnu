@@ -5,7 +5,7 @@ use rand::{Rng, SeedableRng};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::io::{duplex, AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, duplex};
 use tokio::net::{TcpListener, TcpStream};
 
 const REPLY_404: &[u8] = b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n";
@@ -92,10 +92,13 @@ async fn run_generic_probe_and_capture_prefix(payload: Vec<u8>, expected_prefix:
     client_side.shutdown().await.unwrap();
 
     let mut observed = vec![0u8; REPLY_404.len()];
-    tokio::time::timeout(Duration::from_secs(2), client_side.read_exact(&mut observed))
-        .await
-        .unwrap()
-        .unwrap();
+    tokio::time::timeout(
+        Duration::from_secs(2),
+        client_side.read_exact(&mut observed),
+    )
+    .await
+    .unwrap()
+    .unwrap();
     assert_eq!(observed, REPLY_404);
 
     let got = tokio::time::timeout(Duration::from_secs(2), accept_task)
@@ -264,7 +267,8 @@ async fn stress_parallel_probe_mix_masks_all_sessions_without_cross_leakage() {
 
     let mut expected = std::collections::HashSet::new();
     for idx in 0..session_count {
-        let probe = format!("GET /stress-{idx} HTTP/1.1\r\nHost: s{idx}.example\r\n\r\n").into_bytes();
+        let probe =
+            format!("GET /stress-{idx} HTTP/1.1\r\nHost: s{idx}.example\r\n\r\n").into_bytes();
         expected.insert(probe);
     }
 
@@ -274,9 +278,15 @@ async fn stress_parallel_probe_mix_masks_all_sessions_without_cross_leakage() {
             let (mut stream, _) = listener.accept().await.unwrap();
             let head = read_http_probe_header(&mut stream).await;
             stream.write_all(REPLY_404).await.unwrap();
-            assert!(remaining.remove(&head), "backend received unexpected or duplicated probe prefix");
+            assert!(
+                remaining.remove(&head),
+                "backend received unexpected or duplicated probe prefix"
+            );
         }
-        assert!(remaining.is_empty(), "all session prefixes must be observed exactly once");
+        assert!(
+            remaining.is_empty(),
+            "all session prefixes must be observed exactly once"
+        );
     });
 
     let mut tasks = Vec::with_capacity(session_count);
@@ -291,7 +301,8 @@ async fn stress_parallel_probe_mix_masks_all_sessions_without_cross_leakage() {
         let ip_tracker = Arc::new(UserIpTracker::new());
         let beobachten = Arc::new(BeobachtenStore::new());
 
-        let probe = format!("GET /stress-{idx} HTTP/1.1\r\nHost: s{idx}.example\r\n\r\n").into_bytes();
+        let probe =
+            format!("GET /stress-{idx} HTTP/1.1\r\nHost: s{idx}.example\r\n\r\n").into_bytes();
         let peer: SocketAddr = format!("203.0.113.{}:{}", 30 + idx, 56000 + idx)
             .parse()
             .unwrap();
@@ -319,10 +330,13 @@ async fn stress_parallel_probe_mix_masks_all_sessions_without_cross_leakage() {
             client_side.shutdown().await.unwrap();
 
             let mut observed = vec![0u8; REPLY_404.len()];
-            tokio::time::timeout(Duration::from_secs(2), client_side.read_exact(&mut observed))
-                .await
-                .unwrap()
-                .unwrap();
+            tokio::time::timeout(
+                Duration::from_secs(2),
+                client_side.read_exact(&mut observed),
+            )
+            .await
+            .unwrap()
+            .unwrap();
             assert_eq!(observed, REPLY_404);
 
             let result = tokio::time::timeout(Duration::from_secs(2), handler)

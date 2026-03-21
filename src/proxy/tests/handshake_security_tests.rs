@@ -1,8 +1,8 @@
 use super::*;
 use crate::crypto::{sha256, sha256_hmac};
 use dashmap::DashMap;
-use rand::{RngExt, SeedableRng};
 use rand::rngs::StdRng;
+use rand::{RngExt, SeedableRng};
 use std::net::{IpAddr, Ipv4Addr};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -80,8 +80,7 @@ fn make_valid_tls_client_hello_with_alpn(
     for i in 0..4 {
         digest[28 + i] ^= ts[i];
     }
-    record[tls::TLS_DIGEST_POS..tls::TLS_DIGEST_POS + tls::TLS_DIGEST_LEN]
-        .copy_from_slice(&digest);
+    record[tls::TLS_DIGEST_POS..tls::TLS_DIGEST_POS + tls::TLS_DIGEST_LEN].copy_from_slice(&digest);
 
     record
 }
@@ -151,8 +150,7 @@ fn make_valid_tls_client_hello_with_sni_and_alpn(
     for i in 0..4 {
         digest[28 + i] ^= ts[i];
     }
-    record[tls::TLS_DIGEST_POS..tls::TLS_DIGEST_POS + tls::TLS_DIGEST_LEN]
-        .copy_from_slice(&digest);
+    record[tls::TLS_DIGEST_POS..tls::TLS_DIGEST_POS + tls::TLS_DIGEST_LEN].copy_from_slice(&digest);
 
     record
 }
@@ -167,7 +165,11 @@ fn test_config_with_secret_hex(secret_hex: &str) -> ProxyConfig {
     cfg
 }
 
-fn make_valid_mtproto_handshake(secret_hex: &str, proto_tag: ProtoTag, dc_idx: i16) -> [u8; HANDSHAKE_LEN] {
+fn make_valid_mtproto_handshake(
+    secret_hex: &str,
+    proto_tag: ProtoTag,
+    dc_idx: i16,
+) -> [u8; HANDSHAKE_LEN] {
     let secret = hex::decode(secret_hex).expect("secret hex must decode for mtproto test helper");
 
     let mut handshake = [0x5Au8; HANDSHAKE_LEN];
@@ -328,7 +330,10 @@ fn test_generate_tg_nonce_fast_mode_embeds_reversed_client_enc_material() {
     expected.extend_from_slice(&client_enc_iv.to_be_bytes());
     expected.reverse();
 
-    assert_eq!(&nonce[SKIP_LEN..SKIP_LEN + KEY_LEN + IV_LEN], expected.as_slice());
+    assert_eq!(
+        &nonce[SKIP_LEN..SKIP_LEN + KEY_LEN + IV_LEN],
+        expected.as_slice()
+    );
 }
 
 #[test]
@@ -445,7 +450,9 @@ async fn tls_replay_with_ignore_time_skew_and_small_boot_timestamp_is_still_bloc
 #[tokio::test]
 async fn tls_replay_concurrent_identical_handshake_allows_exactly_one_success() {
     let secret = [0x77u8; 16];
-    let config = Arc::new(test_config_with_secret_hex("77777777777777777777777777777777"));
+    let config = Arc::new(test_config_with_secret_hex(
+        "77777777777777777777777777777777",
+    ));
     let replay_checker = Arc::new(ReplayChecker::new(4096, Duration::from_secs(60)));
     let rng = Arc::new(SecureRandom::new());
     let handshake = Arc::new(make_valid_tls_handshake(&secret, 0));
@@ -785,10 +792,10 @@ async fn mixed_secret_lengths_keep_valid_user_authenticating() {
         .access
         .users
         .insert("broken_user".to_string(), "aa".to_string());
-    config
-        .access
-        .users
-        .insert("valid_user".to_string(), "22222222222222222222222222222222".to_string());
+    config.access.users.insert(
+        "valid_user".to_string(),
+        "22222222222222222222222222222222".to_string(),
+    );
     config.access.ignore_time_skew = true;
 
     let replay_checker = ReplayChecker::new(128, Duration::from_secs(60));
@@ -829,12 +836,8 @@ async fn tls_sni_preferred_user_hint_selects_matching_identity_first() {
     let replay_checker = ReplayChecker::new(128, Duration::from_secs(60));
     let rng = SecureRandom::new();
     let peer: SocketAddr = "198.51.100.188:44326".parse().unwrap();
-    let handshake = make_valid_tls_client_hello_with_sni_and_alpn(
-        &shared_secret,
-        0,
-        "user-b",
-        &[b"h2"],
-    );
+    let handshake =
+        make_valid_tls_client_hello_with_sni_and_alpn(&shared_secret, 0, "user-b", &[b"h2"]);
 
     let result = handle_tls_handshake(
         &handshake,
@@ -868,10 +871,10 @@ fn stress_decode_user_secrets_keeps_preferred_user_first_in_large_set() {
     let secret_hex = "7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f".to_string();
 
     for i in 0..4096usize {
-        config.access.users.insert(
-            format!("decoy-{i:04}.example"),
-            secret_hex.clone(),
-        );
+        config
+            .access
+            .users
+            .insert(format!("decoy-{i:04}.example"), secret_hex.clone());
     }
     config
         .access
@@ -910,10 +913,10 @@ async fn stress_tls_sni_preferred_user_hint_scales_to_large_user_set() {
     let secret_hex = "7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f".to_string();
 
     for i in 0..4096usize {
-        config.access.users.insert(
-            format!("decoy-{i:04}.example"),
-            secret_hex.clone(),
-        );
+        config
+            .access
+            .users
+            .insert(format!("decoy-{i:04}.example"), secret_hex.clone());
     }
     config
         .access
@@ -945,8 +948,7 @@ async fn stress_tls_sni_preferred_user_hint_scales_to_large_user_set() {
     match result {
         HandshakeResult::Success((_, _, user)) => {
             assert_eq!(
-                user,
-                preferred_user,
+                user, preferred_user,
                 "SNI preferred-user hint must remain stable under large user cardinality"
             );
         }
@@ -1880,11 +1882,15 @@ fn auth_probe_ipv6_different_prefixes_use_distinct_buckets() {
         "different IPv6 /64 prefixes must not share throttle buckets"
     );
     assert_eq!(
-        state.get(&normalize_auth_probe_ip(ip_a)).map(|entry| entry.fail_streak),
+        state
+            .get(&normalize_auth_probe_ip(ip_a))
+            .map(|entry| entry.fail_streak),
         Some(1)
     );
     assert_eq!(
-        state.get(&normalize_auth_probe_ip(ip_b)).map(|entry| entry.fail_streak),
+        state
+            .get(&normalize_auth_probe_ip(ip_b))
+            .map(|entry| entry.fail_streak),
         Some(1)
     );
 }
@@ -1944,7 +1950,6 @@ fn auth_probe_eviction_offset_changes_with_time_component() {
     );
 }
 
-
 #[test]
 fn auth_probe_round_limited_overcap_eviction_marks_saturation_and_keeps_newcomer_trackable() {
     let _guard = auth_probe_test_lock()
@@ -1986,7 +1991,10 @@ fn auth_probe_round_limited_overcap_eviction_marks_saturation_and_keeps_newcomer
     let newcomer = IpAddr::V4(Ipv4Addr::new(203, 0, 113, 40));
     auth_probe_record_failure_with_state(&state, newcomer, now + Duration::from_millis(1));
 
-    assert!(state.get(&newcomer).is_some(), "newcomer must still be tracked under over-cap pressure");
+    assert!(
+        state.get(&newcomer).is_some(),
+        "newcomer must still be tracked under over-cap pressure"
+    );
     assert!(
         state.get(&sentinel).is_some(),
         "high fail-streak sentinel must survive round-limited eviction"
@@ -2077,13 +2085,20 @@ fn stress_auth_probe_overcap_churn_does_not_starve_high_threat_sentinel_bucket()
             ((step >> 8) & 0xff) as u8,
             (step & 0xff) as u8,
         ));
-        auth_probe_record_failure_with_state(&state, newcomer, base_now + Duration::from_millis(step as u64 + 1));
+        auth_probe_record_failure_with_state(
+            &state,
+            newcomer,
+            base_now + Duration::from_millis(step as u64 + 1),
+        );
 
         assert!(
             state.get(&sentinel).is_some(),
             "step {step}: high-threat sentinel must not be starved by newcomer churn"
         );
-        assert!(state.get(&newcomer).is_some(), "step {step}: newcomer must be tracked");
+        assert!(
+            state.get(&newcomer).is_some(),
+            "step {step}: newcomer must be tracked"
+        );
     }
 }
 
@@ -2129,10 +2144,22 @@ fn light_fuzz_auth_probe_overcap_eviction_prefers_less_threatening_entries() {
             );
         }
 
-        let newcomer = IpAddr::V4(Ipv4Addr::new(203, 10, ((round >> 8) & 0xff) as u8, (round & 0xff) as u8));
-        auth_probe_record_failure_with_state(&state, newcomer, now + Duration::from_millis(round as u64 + 1));
+        let newcomer = IpAddr::V4(Ipv4Addr::new(
+            203,
+            10,
+            ((round >> 8) & 0xff) as u8,
+            (round & 0xff) as u8,
+        ));
+        auth_probe_record_failure_with_state(
+            &state,
+            newcomer,
+            now + Duration::from_millis(round as u64 + 1),
+        );
 
-        assert!(state.get(&newcomer).is_some(), "round {round}: newcomer should be tracked");
+        assert!(
+            state.get(&newcomer).is_some(),
+            "round {round}: newcomer should be tracked"
+        );
         assert!(
             state.get(&sentinel).is_some(),
             "round {round}: high fail-streak sentinel should survive mixed low-threat pool"
@@ -2145,7 +2172,12 @@ fn light_fuzz_auth_probe_eviction_offset_is_deterministic_per_input_pair() {
     let base = Instant::now();
 
     for _ in 0..4096usize {
-        let ip = IpAddr::V4(Ipv4Addr::new(rng.random(), rng.random(), rng.random(), rng.random()));
+        let ip = IpAddr::V4(Ipv4Addr::new(
+            rng.random(),
+            rng.random(),
+            rng.random(),
+            rng.random(),
+        ));
         let offset_ns = rng.random_range(0_u64..2_000_000);
         let when = base + Duration::from_nanos(offset_ns);
 
@@ -2244,8 +2276,7 @@ async fn auth_probe_concurrent_failures_do_not_lose_fail_streak_updates() {
     let streak = auth_probe_fail_streak_for_testing(peer_ip)
         .expect("tracked peer must exist after concurrent failure burst");
     assert_eq!(
-        streak as usize,
-        tasks,
+        streak as usize, tasks,
         "concurrent failures for one source must account every attempt"
     );
 }
@@ -2258,7 +2289,9 @@ async fn invalid_probe_noise_from_other_ips_does_not_break_valid_tls_handshake()
     clear_auth_probe_state_for_testing();
 
     let secret = [0x31u8; 16];
-    let config = Arc::new(test_config_with_secret_hex("31313131313131313131313131313131"));
+    let config = Arc::new(test_config_with_secret_hex(
+        "31313131313131313131313131313131",
+    ));
     let replay_checker = Arc::new(ReplayChecker::new(4096, Duration::from_secs(60)));
     let rng = Arc::new(SecureRandom::new());
     let victim_peer: SocketAddr = "198.51.100.91:44391".parse().unwrap();
@@ -2845,7 +2878,10 @@ async fn saturation_grace_progression_tls_reaches_cap_then_stops_incrementing() 
         )
         .await;
         assert!(matches!(result, HandshakeResult::BadClient { .. }));
-        assert_eq!(auth_probe_fail_streak_for_testing(peer.ip()), Some(expected));
+        assert_eq!(
+            auth_probe_fail_streak_for_testing(peer.ip()),
+            Some(expected)
+        );
     }
 
     {
@@ -2924,7 +2960,10 @@ async fn saturation_grace_progression_mtproto_reaches_cap_then_stops_incrementin
         )
         .await;
         assert!(matches!(result, HandshakeResult::BadClient { .. }));
-        assert_eq!(auth_probe_fail_streak_for_testing(peer.ip()), Some(expected));
+        assert_eq!(
+            auth_probe_fail_streak_for_testing(peer.ip()),
+            Some(expected)
+        );
     }
 
     {
@@ -3148,7 +3187,9 @@ async fn adversarial_same_peer_invalid_tls_storm_does_not_bypass_saturation_grac
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     clear_auth_probe_state_for_testing();
 
-    let config = Arc::new(test_config_with_secret_hex("75757575757575757575757575757575"));
+    let config = Arc::new(test_config_with_secret_hex(
+        "75757575757575757575757575757575",
+    ));
     let replay_checker = Arc::new(ReplayChecker::new(1024, Duration::from_secs(60)));
     let rng = Arc::new(SecureRandom::new());
     let peer: SocketAddr = "198.51.100.212:45212".parse().unwrap();
@@ -3296,7 +3337,11 @@ async fn adversarial_saturation_burst_only_admits_valid_tls_and_mtproto_handshak
     }
 
     let valid_tls = Arc::new(make_valid_tls_handshake(&secret, 0));
-    let valid_mtproto = Arc::new(make_valid_mtproto_handshake(secret_hex, ProtoTag::Secure, 3));
+    let valid_mtproto = Arc::new(make_valid_mtproto_handshake(
+        secret_hex,
+        ProtoTag::Secure,
+        3,
+    ));
     let mut invalid_tls = vec![0x42u8; tls::TLS_DIGEST_POS + tls::TLS_DIGEST_LEN + 1 + 32];
     invalid_tls[tls::TLS_DIGEST_POS + tls::TLS_DIGEST_LEN] = 32;
     let invalid_tls = Arc::new(invalid_tls);
@@ -3368,7 +3413,9 @@ async fn adversarial_saturation_burst_only_admits_valid_tls_and_mtproto_handshak
         match task.await.unwrap() {
             HandshakeResult::BadClient { .. } => bad_clients += 1,
             HandshakeResult::Success(_) => panic!("invalid TLS probe unexpectedly authenticated"),
-            HandshakeResult::Error(err) => panic!("unexpected error in invalid TLS saturation burst test: {err}"),
+            HandshakeResult::Error(err) => {
+                panic!("unexpected error in invalid TLS saturation burst test: {err}")
+            }
         }
     }
 
@@ -3385,8 +3432,7 @@ async fn adversarial_saturation_burst_only_admits_valid_tls_and_mtproto_handshak
     );
 
     assert_eq!(
-        bad_clients,
-        48,
+        bad_clients, 48,
         "all invalid TLS probes in mixed saturation burst must be rejected"
     );
 }

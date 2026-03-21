@@ -91,11 +91,13 @@ mask_shape_above_cap_blur_max_bytes = 64
 "#,
     );
 
-    let err = ProxyConfig::load(&path)
-        .expect_err("above-cap blur must require shape hardening enabled");
+    let err =
+        ProxyConfig::load(&path).expect_err("above-cap blur must require shape hardening enabled");
     let msg = err.to_string();
     assert!(
-        msg.contains("censorship.mask_shape_above_cap_blur requires censorship.mask_shape_hardening = true"),
+        msg.contains(
+            "censorship.mask_shape_above_cap_blur requires censorship.mask_shape_hardening = true"
+        ),
         "error must explain blur prerequisite, got: {msg}"
     );
 
@@ -113,8 +115,8 @@ mask_shape_above_cap_blur_max_bytes = 0
 "#,
     );
 
-    let err = ProxyConfig::load(&path)
-        .expect_err("above-cap blur max bytes must be > 0 when enabled");
+    let err =
+        ProxyConfig::load(&path).expect_err("above-cap blur max bytes must be > 0 when enabled");
     let msg = err.to_string();
     assert!(
         msg.contains("censorship.mask_shape_above_cap_blur_max_bytes must be > 0 when censorship.mask_shape_above_cap_blur is enabled"),
@@ -135,8 +137,8 @@ mask_timing_normalization_ceiling_ms = 200
 "#,
     );
 
-    let err = ProxyConfig::load(&path)
-        .expect_err("timing normalization floor must be > 0 when enabled");
+    let err =
+        ProxyConfig::load(&path).expect_err("timing normalization floor must be > 0 when enabled");
     let msg = err.to_string();
     assert!(
         msg.contains("censorship.mask_timing_normalization_floor_ms must be > 0 when censorship.mask_timing_normalization_enabled is true"),
@@ -157,8 +159,7 @@ mask_timing_normalization_ceiling_ms = 200
 "#,
     );
 
-    let err = ProxyConfig::load(&path)
-        .expect_err("timing normalization ceiling must be >= floor");
+    let err = ProxyConfig::load(&path).expect_err("timing normalization ceiling must be >= floor");
     let msg = err.to_string();
     assert!(
         msg.contains("censorship.mask_timing_normalization_ceiling_ms must be >= censorship.mask_timing_normalization_floor_ms"),

@@ -3,7 +3,7 @@ use crate::config::{UpstreamConfig, UpstreamType};
 use crate::crypto::sha256_hmac;
 use crate::protocol::constants::{HANDSHAKE_LEN, TLS_RECORD_APPLICATION, TLS_VERSION};
 use crate::protocol::tls;
-use tokio::io::{duplex, AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, duplex};
 use tokio::net::TcpListener;
 use tokio::time::Duration;
 
@@ -70,7 +70,10 @@ fn build_harness(mask_port: u16, secret_hex: &str) -> StressHarness {
 }
 
 fn make_valid_tls_client_hello(secret: &[u8], timestamp: u32, tls_len: usize, fill: u8) -> Vec<u8> {
-    assert!(tls_len <= u16::MAX as usize, "TLS length must fit into record header");
+    assert!(
+        tls_len <= u16::MAX as usize,
+        "TLS length must fit into record header"
+    );
 
     let total_len = 5 + tls_len;
     let mut handshake = vec![fill; total_len];
@@ -150,12 +153,8 @@ async fn run_parallel_tail_fallback_case(
 
     for idx in 0..sessions {
         let harness = build_harness(backend_addr.port(), "e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0");
-        let hello = make_valid_tls_client_hello(
-            &[0xE0; 16],
-            ts_base + idx as u32,
-            600,
-            0x40 + (idx as u8),
-        );
+        let hello =
+            make_valid_tls_client_hello(&[0xE0; 16], ts_base + idx as u32, 600, 0x40 + (idx as u8));
 
         let invalid_mtproto = wrap_tls_application_data(&vec![0u8; HANDSHAKE_LEN]);
         let payload = vec![((idx * 37) & 0xff) as u8; payload_len + idx % 3];
@@ -170,8 +169,8 @@ async fn run_parallel_tail_fallback_case(
             peer_ip_fourth,
             peer_port_base + idx as u16
         )
-            .parse()
-            .unwrap();
+        .parse()
+        .unwrap();
 
         tasks.push(tokio::spawn(async move {
             let (server_side, mut client_side) = duplex(262144);
@@ -194,7 +193,10 @@ async fn run_parallel_tail_fallback_case(
 
             client_side.write_all(&hello).await.unwrap();
             let mut server_hello_head = [0u8; 5];
-            client_side.read_exact(&mut server_hello_head).await.unwrap();
+            client_side
+                .read_exact(&mut server_hello_head)
+                .await
+                .unwrap();
             assert_eq!(server_hello_head[0], 0x16);
             read_tls_record_body(&mut client_side, server_hello_head).await;
 

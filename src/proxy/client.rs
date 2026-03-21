@@ -1,5 +1,7 @@
 //! Client Handler
 
+use ipnetwork::IpNetwork;
+use rand::RngExt;
 use std::future::Future;
 use std::net::{IpAddr, SocketAddr};
 use std::pin::Pin;
@@ -7,8 +9,6 @@ use std::sync::Arc;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
-use ipnetwork::IpNetwork;
-use rand::RngExt;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
 use tokio::net::TcpStream;
 use tokio::time::timeout;
@@ -75,10 +75,10 @@ use crate::protocol::tls;
 use crate::stats::beobachten::BeobachtenStore;
 use crate::stats::{ReplayChecker, Stats};
 use crate::stream::{BufferPool, CryptoReader, CryptoWriter};
-use crate::transport::middle_proxy::MePool;
-use crate::transport::{UpstreamManager, configure_client_socket, parse_proxy_protocol};
-use crate::transport::socket::normalize_ip;
 use crate::tls_front::TlsFrontCache;
+use crate::transport::middle_proxy::MePool;
+use crate::transport::socket::normalize_ip;
+use crate::transport::{UpstreamManager, configure_client_socket, parse_proxy_protocol};
 
 use crate::proxy::direct_relay::handle_via_direct;
 use crate::proxy::handshake::{HandshakeSuccess, handle_mtproto_handshake, handle_tls_handshake};
@@ -128,7 +128,10 @@ fn tls_clienthello_len_in_bounds(tls_len: usize) -> bool {
     (MIN_TLS_CLIENT_HELLO_SIZE..=MAX_TLS_PLAINTEXT_SIZE).contains(&tls_len)
 }
 
-async fn read_with_progress<R: AsyncRead + Unpin>(reader: &mut R, mut buf: &mut [u8]) -> std::io::Result<usize> {
+async fn read_with_progress<R: AsyncRead + Unpin>(
+    reader: &mut R,
+    mut buf: &mut [u8],
+) -> std::io::Result<usize> {
     let mut total = 0usize;
     while !buf.is_empty() {
         match reader.read(buf).await {
@@ -271,10 +274,14 @@ where
     let mut local_addr = synthetic_local_addr(config.server.port);
 
     if proxy_protocol_enabled {
-        let proxy_header_timeout = Duration::from_millis(
-            config.server.proxy_protocol_header_timeout_ms.max(1),
-        );
-        match timeout(proxy_header_timeout, parse_proxy_protocol(&mut stream, peer)).await {
+        let proxy_header_timeout =
+            Duration::from_millis(config.server.proxy_protocol_header_timeout_ms.max(1));
+        match timeout(
+            proxy_header_timeout,
+            parse_proxy_protocol(&mut stream, peer),
+        )
+        .await
+        {
             Ok(Ok(info)) => {
                 if !is_trusted_proxy_source(peer.ip(), &config.server.proxy_protocol_trusted_cidrs)
                 {
@@ -674,9 +681,8 @@ impl RunningClientHandler {
         let mut local_addr = self.stream.local_addr().map_err(ProxyError::Io)?;
 
         if self.proxy_protocol_enabled {
-            let proxy_header_timeout = Duration::from_millis(
-                self.config.server.proxy_protocol_header_timeout_ms.max(1),
-            );
+            let proxy_header_timeout =
+                Duration::from_millis(self.config.server.proxy_protocol_header_timeout_ms.max(1));
             match timeout(
                 proxy_header_timeout,
                 parse_proxy_protocol(&mut self.stream, self.peer),
@@ -761,7 +767,11 @@ impl RunningClientHandler {
         }
     }
 
-    async fn handle_tls_client(mut self, first_bytes: [u8; 5], local_addr: SocketAddr) -> Result<HandshakeOutcome> {
+    async fn handle_tls_client(
+        mut self,
+        first_bytes: [u8; 5],
+        local_addr: SocketAddr,
+    ) -> Result<HandshakeOutcome> {
         let peer = self.peer;
 
         let tls_len = u16::from_be_bytes([first_bytes[3], first_bytes[4]]) as usize;
@@ -895,7 +905,8 @@ impl RunningClientHandler {
                 } else {
                     wrap_tls_application_record(&pending_plaintext)
                 };
-                let reader = tokio::io::AsyncReadExt::chain(std::io::Cursor::new(pending_record), reader);
+                let reader =
+                    tokio::io::AsyncReadExt::chain(std::io::Cursor::new(pending_record), reader);
                 stats.increment_connects_bad();
                 debug!(
                     peer = %peer,
@@ -933,7 +944,11 @@ impl RunningClientHandler {
         )))
     }
 
-    async fn handle_direct_client(mut self, first_bytes: [u8; 5], local_addr: SocketAddr) -> Result<HandshakeOutcome> {
+    async fn handle_direct_client(
+        mut self,
+        first_bytes: [u8; 5],
+        local_addr: SocketAddr,
+    ) -> Result<HandshakeOutcome> {
         let peer = self.peer;
 
         if !self.config.general.modes.classic && !self.config.general.modes.secure {
@@ -1035,22 +1050,21 @@ impl RunningClientHandler {
     {
         let user = success.user.clone();
 
-        let user_limit_reservation =
-            match Self::acquire_user_connection_reservation_static(
-                &user,
-                &config,
-                stats.clone(),
-                peer_addr,
-                ip_tracker,
-            )
-            .await
-            {
-                Ok(reservation) => reservation,
-                Err(e) => {
-                    warn!(user = %user, error = %e, "User admission check failed");
-                    return Err(e);
-                }
-            };
+        let user_limit_reservation = match Self::acquire_user_connection_reservation_static(
+            &user,
+            &config,
+            stats.clone(),
+            peer_addr,
+            ip_tracker,
+        )
+        .await
+        {
+            Ok(reservation) => reservation,
+            Err(e) => {
+                warn!(user = %user, error = %e, "User admission check failed");
+                return Err(e);
+            }
+        };
 
         let route_snapshot = route_runtime.snapshot();
         let session_id = rng.u64();
@@ -1134,7 +1148,11 @@ impl RunningClientHandler {
             });
         }
 
-        let limit = config.access.user_max_tcp_conns.get(user).map(|v| *v as u64);
+        let limit = config
+            .access
+            .user_max_tcp_conns
+            .get(user)
+            .map(|v| *v as u64);
         if !stats.try_acquire_user_curr_connects(user, limit) {
             return Err(ProxyError::ConnectionLimitExceeded {
                 user: user.to_string(),

@@ -6,7 +6,7 @@ use crate::protocol::constants::ProtoTag;
 use crate::stats::ReplayChecker;
 use std::net::SocketAddr;
 use std::sync::MutexGuard;
-use tokio::time::{timeout, Duration as TokioDuration};
+use tokio::time::{Duration as TokioDuration, timeout};
 
 fn make_mtproto_handshake_with_proto_bytes(
     secret_hex: &str,
@@ -48,14 +48,20 @@ fn make_mtproto_handshake_with_proto_bytes(
     handshake
 }
 
-fn make_valid_mtproto_handshake(secret_hex: &str, proto_tag: ProtoTag, dc_idx: i16) -> [u8; HANDSHAKE_LEN] {
+fn make_valid_mtproto_handshake(
+    secret_hex: &str,
+    proto_tag: ProtoTag,
+    dc_idx: i16,
+) -> [u8; HANDSHAKE_LEN] {
     make_mtproto_handshake_with_proto_bytes(secret_hex, proto_tag.to_bytes(), dc_idx)
 }
 
 fn test_config_with_secret_hex(secret_hex: &str) -> ProxyConfig {
     let mut cfg = ProxyConfig::default();
     cfg.access.users.clear();
-    cfg.access.users.insert("user".to_string(), secret_hex.to_string());
+    cfg.access
+        .users
+        .insert("user".to_string(), secret_hex.to_string());
     cfg.access.ignore_time_skew = true;
     cfg.general.modes.secure = true;
     cfg
@@ -140,7 +146,9 @@ async fn mtproto_handshake_fuzz_corpus_never_panics_and_stays_fail_closed() {
     for _ in 0..32 {
         let mut mutated = base;
         for _ in 0..4 {
-            seed = seed.wrapping_mul(2862933555777941757).wrapping_add(3037000493);
+            seed = seed
+                .wrapping_mul(2862933555777941757)
+                .wrapping_add(3037000493);
             let idx = SKIP_LEN + (seed as usize % (PREKEY_LEN + IV_LEN));
             mutated[idx] ^= ((seed >> 19) as u8).wrapping_add(1);
         }

@@ -3,7 +3,7 @@ use crate::config::{UpstreamConfig, UpstreamType};
 use crate::crypto::sha256_hmac;
 use crate::protocol::constants::{HANDSHAKE_LEN, TLS_VERSION};
 use crate::protocol::tls;
-use tokio::io::{duplex, AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, duplex};
 use tokio::net::TcpListener;
 use tokio::time::{Duration, Instant};
 
@@ -67,7 +67,10 @@ fn build_harness(secret_hex: &str, mask_port: u16) -> RedTeamHarness {
 }
 
 fn make_valid_tls_client_hello(secret: &[u8], timestamp: u32, tls_len: usize, fill: u8) -> Vec<u8> {
-    assert!(tls_len <= u16::MAX as usize, "TLS length must fit into record header");
+    assert!(
+        tls_len <= u16::MAX as usize,
+        "TLS length must fit into record header"
+    );
 
     let total_len = 5 + tls_len;
     let mut handshake = vec![fill; total_len];
@@ -148,8 +151,14 @@ async fn run_tls_success_mtproto_fail_session(
     let mut body = vec![0u8; body_len];
     client_side.read_exact(&mut body).await.unwrap();
 
-    client_side.write_all(&invalid_mtproto_record).await.unwrap();
-    client_side.write_all(&wrap_tls_application_data(&tail)).await.unwrap();
+    client_side
+        .write_all(&invalid_mtproto_record)
+        .await
+        .unwrap();
+    client_side
+        .write_all(&wrap_tls_application_data(&tail))
+        .await
+        .unwrap();
 
     let forwarded = tokio::time::timeout(Duration::from_secs(3), accept_task)
         .await
@@ -175,7 +184,10 @@ async fn redteam_01_backend_receives_no_data_after_mtproto_fail() {
         b"probe-a".to_vec(),
     )
     .await;
-    assert!(forwarded.is_empty(), "backend unexpectedly received fallback bytes");
+    assert!(
+        forwarded.is_empty(),
+        "backend unexpectedly received fallback bytes"
+    );
 }
 
 #[tokio::test]
@@ -188,7 +200,10 @@ async fn redteam_02_backend_must_never_receive_tls_records_after_mtproto_fail() 
         b"probe-b".to_vec(),
     )
     .await;
-    assert_ne!(forwarded[0], 0x17, "received TLS application record despite strict policy");
+    assert_ne!(
+        forwarded[0], 0x17,
+        "received TLS application record despite strict policy"
+    );
 }
 
 #[tokio::test]
@@ -200,9 +215,10 @@ async fn redteam_03_masking_duration_must_be_less_than_1ms_when_backend_down() {
     cfg.censorship.mask_host = Some("127.0.0.1".to_string());
     cfg.censorship.mask_port = 1;
     cfg.access.ignore_time_skew = true;
-    cfg.access
-        .users
-        .insert("user".to_string(), "acacacacacacacacacacacacacacacac".to_string());
+    cfg.access.users.insert(
+        "user".to_string(),
+        "acacacacacacacacacacacacacacacac".to_string(),
+    );
 
     let harness = RedTeamHarness {
         config: Arc::new(cfg),
@@ -261,7 +277,10 @@ async fn redteam_03_masking_duration_must_be_less_than_1ms_when_backend_down() {
         .unwrap()
         .unwrap();
 
-    assert!(started.elapsed() < Duration::from_millis(1), "fallback path took longer than 1ms");
+    assert!(
+        started.elapsed() < Duration::from_millis(1),
+        "fallback path took longer than 1ms"
+    );
 }
 
 macro_rules! redteam_tail_must_not_forward_case {
@@ -283,18 +302,90 @@ macro_rules! redteam_tail_must_not_forward_case {
     };
 }
 
-redteam_tail_must_not_forward_case!(redteam_04_tail_len_1_not_forwarded, "adadadadadadadadadadadadadadadad", [0xAD; 16], 4, 1);
-redteam_tail_must_not_forward_case!(redteam_05_tail_len_2_not_forwarded, "aeaeaeaeaeaeaeaeaeaeaeaeaeaeaeae", [0xAE; 16], 5, 2);
-redteam_tail_must_not_forward_case!(redteam_06_tail_len_3_not_forwarded, "afafafafafafafafafafafafafafafaf", [0xAF; 16], 6, 3);
-redteam_tail_must_not_forward_case!(redteam_07_tail_len_7_not_forwarded, "b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0", [0xB0; 16], 7, 7);
-redteam_tail_must_not_forward_case!(redteam_08_tail_len_15_not_forwarded, "b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1", [0xB1; 16], 8, 15);
-redteam_tail_must_not_forward_case!(redteam_09_tail_len_63_not_forwarded, "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2", [0xB2; 16], 9, 63);
-redteam_tail_must_not_forward_case!(redteam_10_tail_len_127_not_forwarded, "b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3", [0xB3; 16], 10, 127);
-redteam_tail_must_not_forward_case!(redteam_11_tail_len_255_not_forwarded, "b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4", [0xB4; 16], 11, 255);
-redteam_tail_must_not_forward_case!(redteam_12_tail_len_511_not_forwarded, "b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5", [0xB5; 16], 12, 511);
-redteam_tail_must_not_forward_case!(redteam_13_tail_len_1023_not_forwarded, "b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6", [0xB6; 16], 13, 1023);
-redteam_tail_must_not_forward_case!(redteam_14_tail_len_2047_not_forwarded, "b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7", [0xB7; 16], 14, 2047);
-redteam_tail_must_not_forward_case!(redteam_15_tail_len_4095_not_forwarded, "b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8", [0xB8; 16], 15, 4095);
+redteam_tail_must_not_forward_case!(
+    redteam_04_tail_len_1_not_forwarded,
+    "adadadadadadadadadadadadadadadad",
+    [0xAD; 16],
+    4,
+    1
+);
+redteam_tail_must_not_forward_case!(
+    redteam_05_tail_len_2_not_forwarded,
+    "aeaeaeaeaeaeaeaeaeaeaeaeaeaeaeae",
+    [0xAE; 16],
+    5,
+    2
+);
+redteam_tail_must_not_forward_case!(
+    redteam_06_tail_len_3_not_forwarded,
+    "afafafafafafafafafafafafafafafaf",
+    [0xAF; 16],
+    6,
+    3
+);
+redteam_tail_must_not_forward_case!(
+    redteam_07_tail_len_7_not_forwarded,
+    "b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0",
+    [0xB0; 16],
+    7,
+    7
+);
+redteam_tail_must_not_forward_case!(
+    redteam_08_tail_len_15_not_forwarded,
+    "b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1",
+    [0xB1; 16],
+    8,
+    15
+);
+redteam_tail_must_not_forward_case!(
+    redteam_09_tail_len_63_not_forwarded,
+    "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+    [0xB2; 16],
+    9,
+    63
+);
+redteam_tail_must_not_forward_case!(
+    redteam_10_tail_len_127_not_forwarded,
+    "b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3",
+    [0xB3; 16],
+    10,
+    127
+);
+redteam_tail_must_not_forward_case!(
+    redteam_11_tail_len_255_not_forwarded,
+    "b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4",
+    [0xB4; 16],
+    11,
+    255
+);
+redteam_tail_must_not_forward_case!(
+    redteam_12_tail_len_511_not_forwarded,
+    "b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5",
+    [0xB5; 16],
+    12,
+    511
+);
+redteam_tail_must_not_forward_case!(
+    redteam_13_tail_len_1023_not_forwarded,
+    "b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6",
+    [0xB6; 16],
+    13,
+    1023
+);
+redteam_tail_must_not_forward_case!(
+    redteam_14_tail_len_2047_not_forwarded,
+    "b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7",
+    [0xB7; 16],
+    14,
+    2047
+);
+redteam_tail_must_not_forward_case!(
+    redteam_15_tail_len_4095_not_forwarded,
+    "b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8",
+    [0xB8; 16],
+    15,
+    4095
+);
 
 #[tokio::test]
 #[ignore = "red-team expected-fail: impossible indistinguishability envelope"]
@@ -349,14 +440,13 @@ async fn redteam_16_timing_delta_between_paths_must_be_sub_1ms_under_concurrency
 
     let min = durations.iter().copied().min().unwrap();
     let max = durations.iter().copied().max().unwrap();
-    assert!(max - min <= Duration::from_millis(1), "timing spread too wide for strict anti-probing envelope");
+    assert!(
+        max - min <= Duration::from_millis(1),
+        "timing spread too wide for strict anti-probing envelope"
+    );
 }
 
-async fn measure_invalid_probe_duration_ms(
-    delay_ms: u64,
-    tls_len: u16,
-    body_sent: usize,
-) -> u128 {
+async fn measure_invalid_probe_duration_ms(delay_ms: u64, tls_len: u16, body_sent: usize) -> u128 {
     let mut cfg = ProxyConfig::default();
     cfg.general.beobachten = false;
     cfg.censorship.mask = true;
@@ -501,7 +591,8 @@ macro_rules! redteam_timing_envelope_case {
         #[tokio::test]
         #[ignore = "red-team expected-fail: unrealistically tight reject timing envelope"]
         async fn $name() {
-            let elapsed_ms = measure_invalid_probe_duration_ms($delay_ms, $tls_len, $body_sent).await;
+            let elapsed_ms =
+                measure_invalid_probe_duration_ms($delay_ms, $tls_len, $body_sent).await;
             assert!(
                 elapsed_ms <= $max_ms,
                 "timing envelope violated: elapsed={}ms, max={}ms",
@@ -519,11 +610,9 @@ macro_rules! redteam_constant_shape_case {
         async fn $name() {
             let got = capture_forwarded_probe_len($tls_len, $body_sent).await;
             assert_eq!(
-                got,
-                $expected_len,
+                got, $expected_len,
                 "fingerprint shape mismatch: got={} expected={} (strict constant-shape model)",
-                got,
-                $expected_len
+                got, $expected_len
             );
         }
     };

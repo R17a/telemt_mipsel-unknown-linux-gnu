@@ -1,6 +1,6 @@
 use super::*;
-use rand::{RngExt, SeedableRng};
 use rand::rngs::StdRng;
+use rand::{RngExt, SeedableRng};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -19,14 +19,7 @@ fn cutover_stagger_delay_stays_within_budget_bounds() {
     // Black-hat model: censors trigger many cutovers and correlate disconnect timing.
     // Keep delay inside a narrow coarse window to avoid long-tail spikes.
     for generation in [0u64, 1, 2, 3, 16, 128, u32::MAX as u64, u64::MAX] {
-        for session_id in [
-            0u64,
-            1,
-            2,
-            0xdead_beef,
-            0xfeed_face_cafe_babe,
-            u64::MAX,
-        ] {
+        for session_id in [0u64, 1, 2, 0xdead_beef, 0xfeed_face_cafe_babe, u64::MAX] {
             let delay = cutover_stagger_delay(session_id, generation);
             assert!(
                 (1000..=1999).contains(&delay.as_millis()),
@@ -216,7 +209,10 @@ fn light_fuzz_set_mode_generation_tracks_only_real_transitions() {
         let changed = runtime.set_mode(candidate);
 
         if candidate == expected_mode {
-            assert!(changed.is_none(), "idempotent set_mode must not emit cutover state");
+            assert!(
+                changed.is_none(),
+                "idempotent set_mode must not emit cutover state"
+            );
         } else {
             expected_mode = candidate;
             expected_generation = expected_generation.saturating_add(1);
@@ -298,7 +294,9 @@ fn stress_concurrent_transition_count_matches_final_generation() {
         }
 
         for worker in workers {
-            worker.join().expect("route mode transition worker must not panic");
+            worker
+                .join()
+                .expect("route mode transition worker must not panic");
         }
     });
 
@@ -391,8 +389,8 @@ fn stress_cutover_stagger_delay_distribution_remains_stable_across_generations()
     for generation in [0u64, 1, 7, 31, 255, 1024, u32::MAX as u64, u64::MAX - 1] {
         let mut buckets = [0usize; 1000];
         for session_id in 0..100_000u64 {
-            let delay_ms = cutover_stagger_delay(session_id ^ 0x9E37_79B9, generation)
-                .as_millis() as usize;
+            let delay_ms =
+                cutover_stagger_delay(session_id ^ 0x9E37_79B9, generation).as_millis() as usize;
             buckets[delay_ms - 1000] += 1;
         }
 

@@ -9,17 +9,17 @@ use std::time::{Duration, Instant};
 
 use dashmap::DashMap;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use tokio::sync::{mpsc, oneshot, watch, Mutex as AsyncMutex};
+use tokio::sync::{Mutex as AsyncMutex, mpsc, oneshot, watch};
 use tokio::time::timeout;
 use tracing::{debug, info, trace, warn};
 
 use crate::config::ProxyConfig;
 use crate::crypto::SecureRandom;
 use crate::error::{ProxyError, Result};
-use crate::protocol::constants::{*, secure_padding_len};
+use crate::protocol::constants::{secure_padding_len, *};
 use crate::proxy::handshake::HandshakeSuccess;
 use crate::proxy::route_mode::{
-    RelayRouteMode, RouteCutoverState, ROUTE_SWITCH_ERROR_MSG, affected_cutover_state,
+    ROUTE_SWITCH_ERROR_MSG, RelayRouteMode, RouteCutoverState, affected_cutover_state,
     cutover_stagger_delay,
 };
 use crate::stats::Stats;
@@ -503,8 +503,7 @@ fn report_desync_frame_too_large(
 
     ProxyError::Proxy(format!(
         "Frame too large: {len} (max {max_frame}), frames_ok={frame_counter}, conn_id={}, trace_id=0x{:016x}",
-        state.conn_id,
-        state.trace_id
+        state.conn_id, state.trace_id
     ))
 }
 
@@ -629,11 +628,9 @@ where
     stats.increment_user_connects(&user);
     let _me_connection_lease = stats.acquire_me_connection_lease();
 
-    if let Some(cutover) = affected_cutover_state(
-        &route_rx,
-        RelayRouteMode::Middle,
-        route_snapshot.generation,
-    ) {
+    if let Some(cutover) =
+        affected_cutover_state(&route_rx, RelayRouteMode::Middle, route_snapshot.generation)
+    {
         let delay = cutover_stagger_delay(session_id, cutover.generation);
         warn!(
             conn_id,
@@ -695,15 +692,17 @@ where
         while let Some(cmd) = c2me_rx.recv().await {
             match cmd {
                 C2MeCommand::Data { payload, flags } => {
-                    me_pool_c2me.send_proxy_req(
-                        conn_id,
-                        success.dc_idx,
-                        peer,
-                        translated_local_addr,
-                        payload.as_ref(),
-                        flags,
-                        effective_tag.as_deref(),
-                    ).await?;
+                    me_pool_c2me
+                        .send_proxy_req(
+                            conn_id,
+                            success.dc_idx,
+                            peer,
+                            translated_local_addr,
+                            payload.as_ref(),
+                            flags,
+                            effective_tag.as_deref(),
+                        )
+                        .await?;
                     sent_since_yield = sent_since_yield.saturating_add(1);
                     if should_yield_c2me_sender(sent_since_yield, !c2me_rx.is_empty()) {
                         sent_since_yield = 0;
@@ -916,7 +915,11 @@ where
     let mut seen_pressure_seq = relay_pressure_event_seq();
     loop {
         if relay_idle_policy.enabled
-            && maybe_evict_idle_candidate_on_pressure(conn_id, &mut seen_pressure_seq, stats.as_ref())
+            && maybe_evict_idle_candidate_on_pressure(
+                conn_id,
+                &mut seen_pressure_seq,
+                stats.as_ref(),
+            )
         {
             info!(
                 conn_id,
@@ -931,11 +934,9 @@ where
             break;
         }
 
-        if let Some(cutover) = affected_cutover_state(
-            &route_rx,
-            RelayRouteMode::Middle,
-            route_snapshot.generation,
-        ) {
+        if let Some(cutover) =
+            affected_cutover_state(&route_rx, RelayRouteMode::Middle, route_snapshot.generation)
+        {
             let delay = cutover_stagger_delay(session_id, cutover.generation);
             warn!(
                 conn_id,
@@ -1102,7 +1103,8 @@ where
                 return deadline;
             }
 
-            let downstream_at = session_started_at + Duration::from_millis(last_downstream_activity_ms);
+            let downstream_at =
+                session_started_at + Duration::from_millis(last_downstream_activity_ms);
             if downstream_at > idle_state.last_client_frame_at {
                 let grace_deadline = downstream_at + idle_policy.grace_after_downstream_activity;
                 if grace_deadline > deadline {
@@ -1117,12 +1119,8 @@ where
             let timeout_window = if idle_policy.enabled {
                 let now = Instant::now();
                 let downstream_ms = last_downstream_activity_ms.load(Ordering::Relaxed);
-                let hard_deadline = hard_deadline(
-                    idle_policy,
-                    idle_state,
-                    session_started_at,
-                    downstream_ms,
-                );
+                let hard_deadline =
+                    hard_deadline(idle_policy, idle_state, session_started_at, downstream_ms);
                 if now >= hard_deadline {
                     clear_relay_idle_candidate(forensics.conn_id);
                     stats.increment_relay_idle_hard_close_total();
@@ -1130,7 +1128,9 @@ where
                         .saturating_duration_since(idle_state.last_client_frame_at)
                         .as_secs();
                     let downstream_idle_secs = now
-                        .saturating_duration_since(session_started_at + Duration::from_millis(downstream_ms))
+                        .saturating_duration_since(
+                            session_started_at + Duration::from_millis(downstream_ms),
+                        )
                         .as_secs();
                     warn!(
                         trace_id = format_args!("0x{:016x}", forensics.trace_id),
@@ -1204,7 +1204,9 @@ where
                 Err(_) if !idle_policy.enabled => {
                     return Err(ProxyError::Io(std::io::Error::new(
                         std::io::ErrorKind::TimedOut,
-                        format!("middle-relay client frame read timeout while reading {read_label}"),
+                        format!(
+                            "middle-relay client frame read timeout while reading {read_label}"
+                        ),
                     )));
                 }
                 Err(_) => {}
@@ -1470,15 +1472,8 @@ where
                         user: user.to_string(),
                     });
                 }
-                write_client_payload(
-                    client_writer,
-                    proto_tag,
-                    flags,
-                    &data,
-                    rng,
-                    frame_buf,
-                )
-                .await?;
+                write_client_payload(client_writer, proto_tag, flags, &data, rng, frame_buf)
+                    .await?;
 
                 bytes_me2c.fetch_add(data.len() as u64, Ordering::Relaxed);
                 stats.add_user_octets_to(user, data.len() as u64);
@@ -1489,15 +1484,8 @@ where
                     });
                 }
             } else {
-                write_client_payload(
-                    client_writer,
-                    proto_tag,
-                    flags,
-                    &data,
-                    rng,
-                    frame_buf,
-                )
-                .await?;
+                write_client_payload(client_writer, proto_tag, flags, &data, rng, frame_buf)
+                    .await?;
 
                 bytes_me2c.fetch_add(data.len() as u64, Ordering::Relaxed);
                 stats.add_user_octets_to(user, data.len() as u64);

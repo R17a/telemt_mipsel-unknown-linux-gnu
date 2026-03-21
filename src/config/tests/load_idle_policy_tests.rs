@@ -30,7 +30,9 @@ relay_client_idle_hard_secs = 60
     let err = ProxyConfig::load(&path).expect_err("config with hard<soft must fail");
     let msg = err.to_string();
     assert!(
-        msg.contains("timeouts.relay_client_idle_hard_secs must be >= timeouts.relay_client_idle_soft_secs"),
+        msg.contains(
+            "timeouts.relay_client_idle_hard_secs must be >= timeouts.relay_client_idle_soft_secs"
+        ),
         "error must explain the violated hard>=soft invariant, got: {msg}"
     );
 

@@ -84,7 +84,10 @@ fn make_valid_client_hello_record(host: &str, alpn_protocols: &[&[u8]]) -> Vec<u
 #[test]
 fn client_hello_fuzz_corpus_never_panics_or_accepts_corruption() {
     let valid = make_valid_client_hello_record("example.com", &[b"h2", b"http/1.1"]);
-    assert_eq!(extract_sni_from_client_hello(&valid).as_deref(), Some("example.com"));
+    assert_eq!(
+        extract_sni_from_client_hello(&valid).as_deref(),
+        Some("example.com")
+    );
     assert_eq!(
         extract_alpn_from_client_hello(&valid),
         vec![b"h2".to_vec(), b"http/1.1".to_vec()]
@@ -121,8 +124,14 @@ fn client_hello_fuzz_corpus_never_panics_or_accepts_corruption() {
             continue;
         }
 
-        assert!(extract_sni_from_client_hello(input).is_none(), "corpus item {idx} must fail closed for SNI");
-        assert!(extract_alpn_from_client_hello(input).is_empty(), "corpus item {idx} must fail closed for ALPN");
+        assert!(
+            extract_sni_from_client_hello(input).is_none(),
+            "corpus item {idx} must fail closed for SNI"
+        );
+        assert!(
+            extract_alpn_from_client_hello(input).is_empty(),
+            "corpus item {idx} must fail closed for ALPN"
+        );
     }
 }
 
@@ -163,7 +172,9 @@ fn tls_handshake_fuzz_corpus_never_panics_and_rejects_digest_mutations() {
     for _ in 0..32 {
         let mut mutated = base.clone();
         for _ in 0..2 {
-            seed = seed.wrapping_mul(2862933555777941757).wrapping_add(3037000493);
+            seed = seed
+                .wrapping_mul(2862933555777941757)
+                .wrapping_add(3037000493);
             let idx = TLS_DIGEST_POS + (seed as usize % TLS_DIGEST_LEN);
             mutated[idx] ^= ((seed >> 17) as u8).wrapping_add(1);
         }
@@ -171,9 +182,13 @@ fn tls_handshake_fuzz_corpus_never_panics_and_rejects_digest_mutations() {
     }
 
     for (idx, handshake) in corpus.iter().enumerate() {
-        let result = catch_unwind(|| validate_tls_handshake_at_time(handshake, &secrets, false, now));
+        let result =
+            catch_unwind(|| validate_tls_handshake_at_time(handshake, &secrets, false, now));
         assert!(result.is_ok(), "corpus item {idx} must not panic");
-        assert!(result.unwrap().is_none(), "corpus item {idx} must fail closed");
+        assert!(
+            result.unwrap().is_none(),
+            "corpus item {idx} must fail closed"
+        );
     }
 }
 

@@ -1,14 +1,14 @@
 use super::*;
 use crate::config::ProxyConfig;
+use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::pin::Pin;
 use std::task::{Context, Poll};
-use tokio::io::{duplex, AsyncBufReadExt, BufReader};
+use tokio::io::{AsyncBufReadExt, BufReader, duplex};
 use tokio::net::TcpListener;
 #[cfg(unix)]
 use tokio::net::UnixListener;
-use tokio::time::{Instant, sleep, timeout, Duration};
+use tokio::time::{Duration, Instant, sleep, timeout};
 
 #[tokio::test]
 async fn bad_client_probe_is_forwarded_verbatim_to_mask_backend() {
@@ -56,7 +56,10 @@ async fn bad_client_probe_is_forwarded_verbatim_to_mask_backend() {
     .await;
 
     let mut observed = vec![0u8; backend_reply.len()];
-    client_visible_reader.read_exact(&mut observed).await.unwrap();
+    client_visible_reader
+        .read_exact(&mut observed)
+        .await
+        .unwrap();
     assert_eq!(observed, backend_reply);
     accept_task.await.unwrap();
 }
@@ -108,7 +111,10 @@ async fn tls_scanner_probe_keeps_http_like_fallback_surface() {
     .await;
 
     let mut observed = vec![0u8; backend_reply.len()];
-    client_visible_reader.read_exact(&mut observed).await.unwrap();
+    client_visible_reader
+        .read_exact(&mut observed)
+        .await
+        .unwrap();
     assert_eq!(observed, backend_reply);
 
     let snapshot = beobachten.snapshot_text(Duration::from_secs(60));
@@ -147,8 +153,8 @@ fn build_mask_proxy_header_v2_matches_builder_output() {
     let expected = ProxyProtocolV2Builder::new()
         .with_addrs(peer, local_addr)
         .build();
-    let actual = build_mask_proxy_header(2, peer, local_addr)
-        .expect("v2 mode must produce a header");
+    let actual =
+        build_mask_proxy_header(2, peer, local_addr).expect("v2 mode must produce a header");
 
     assert_eq!(actual, expected, "v2 header bytes must be deterministic");
 }
@@ -159,8 +165,8 @@ fn build_mask_proxy_header_v1_mixed_ip_family_uses_generic_unknown_form() {
     let local_addr: SocketAddr = "[2001:db8::1]:443".parse().unwrap();
 
     let expected = ProxyProtocolV1Builder::new().build();
-    let actual = build_mask_proxy_header(1, peer, local_addr)
-        .expect("v1 mode must produce a header");
+    let actual =
+        build_mask_proxy_header(1, peer, local_addr).expect("v1 mode must produce a header");
 
     assert_eq!(actual, expected, "mixed-family v1 must use UNKNOWN form");
 }
@@ -197,7 +203,10 @@ async fn beobachten_records_scanner_class_when_mask_is_disabled() {
     client_reader_side.write_all(b"noise").await.unwrap();
     drop(client_reader_side);
 
-    let beobachten = timeout(Duration::from_secs(3), task).await.unwrap().unwrap();
+    let beobachten = timeout(Duration::from_secs(3), task)
+        .await
+        .unwrap()
+        .unwrap();
     let snapshot = beobachten.snapshot_text(Duration::from_secs(60));
     assert!(snapshot.contains("[SSH]"));
     assert!(snapshot.contains("203.0.113.99-1"));
@@ -241,7 +250,10 @@ async fn backend_unavailable_falls_back_to_silent_consume() {
     client_reader_side.write_all(b"noise").await.unwrap();
     drop(client_reader_side);
 
-    timeout(Duration::from_secs(3), task).await.unwrap().unwrap();
+    timeout(Duration::from_secs(3), task)
+        .await
+        .unwrap()
+        .unwrap();
 
     let mut buf = [0u8; 1];
     let n = timeout(Duration::from_secs(1), client_visible_reader.read(&mut buf))
@@ -393,9 +405,9 @@ async fn proxy_header_write_error_on_tcp_path_still_honors_coarse_outcome_budget
         .await;
     });
 
-    timeout(Duration::from_millis(35), task)
-        .await
-        .expect_err("proxy-header write error path should remain inside coarse masking budget window");
+    timeout(Duration::from_millis(35), task).await.expect_err(
+        "proxy-header write error path should remain inside coarse masking budget window",
+    );
     assert!(
         started.elapsed() >= Duration::from_millis(35),
         "proxy-header write error path should avoid immediate-return timing signature"
@@ -450,9 +462,9 @@ async fn proxy_header_write_error_on_unix_path_still_honors_coarse_outcome_budge
         .await;
     });
 
-    timeout(Duration::from_millis(35), task)
-        .await
-        .expect_err("unix proxy-header write error path should remain inside coarse masking budget window");
+    timeout(Duration::from_millis(35), task).await.expect_err(
+        "unix proxy-header write error path should remain inside coarse masking budget window",
+    );
     assert!(
         started.elapsed() >= Duration::from_millis(35),
         "unix proxy-header write error path should avoid immediate-return timing signature"
@@ -486,8 +498,14 @@ async fn unix_socket_proxy_protocol_v1_header_is_sent_before_probe() {
             let mut header_line = Vec::new();
             reader.read_until(b'\n', &mut header_line).await.unwrap();
             let header_text = String::from_utf8(header_line).unwrap();
-            assert!(header_text.starts_with("PROXY "), "must start with PROXY prefix");
-            assert!(header_text.ends_with("\r\n"), "v1 header must end with CRLF");
+            assert!(
+                header_text.starts_with("PROXY "),
+                "must start with PROXY prefix"
+            );
+            assert!(
+                header_text.ends_with("\r\n"),
+                "v1 header must end with CRLF"
+            );
 
             let mut received_probe = vec![0u8; probe.len()];
             reader.read_exact(&mut received_probe).await.unwrap();
@@ -523,7 +541,10 @@ async fn unix_socket_proxy_protocol_v1_header_is_sent_before_probe() {
     .await;
 
     let mut observed = vec![0u8; backend_reply.len()];
-    client_visible_reader.read_exact(&mut observed).await.unwrap();
+    client_visible_reader
+        .read_exact(&mut observed)
+        .await
+        .unwrap();
     assert_eq!(observed, backend_reply);
 
     accept_task.await.unwrap();
@@ -552,7 +573,10 @@ async fn unix_socket_proxy_protocol_v2_header_is_sent_before_probe() {
 
             let mut sig = [0u8; 12];
             stream.read_exact(&mut sig).await.unwrap();
-            assert_eq!(&sig, b"\r\n\r\n\0\r\nQUIT\n", "v2 signature must match spec");
+            assert_eq!(
+                &sig, b"\r\n\r\n\0\r\nQUIT\n",
+                "v2 signature must match spec"
+            );
 
             let mut fixed = [0u8; 4];
             stream.read_exact(&mut fixed).await.unwrap();
@@ -593,7 +617,10 @@ async fn unix_socket_proxy_protocol_v2_header_is_sent_before_probe() {
     .await;
 
     let mut observed = vec![0u8; backend_reply.len()];
-    client_visible_reader.read_exact(&mut observed).await.unwrap();
+    client_visible_reader
+        .read_exact(&mut observed)
+        .await
+        .unwrap();
     assert_eq!(observed, backend_reply);
 
     accept_task.await.unwrap();
@@ -893,10 +920,16 @@ async fn mask_disabled_consumes_client_data_without_response() {
         .await;
     });
 
-    client_reader_side.write_all(b"untrusted payload").await.unwrap();
+    client_reader_side
+        .write_all(b"untrusted payload")
+        .await
+        .unwrap();
     drop(client_reader_side);
 
-    timeout(Duration::from_secs(3), task).await.unwrap().unwrap();
+    timeout(Duration::from_secs(3), task)
+        .await
+        .unwrap()
+        .unwrap();
 
     let mut buf = [0u8; 1];
     let n = timeout(Duration::from_secs(1), client_visible_reader.read(&mut buf))
@@ -962,7 +995,10 @@ async fn proxy_protocol_v1_header_is_sent_before_probe() {
     .await;
 
     let mut observed = vec![0u8; backend_reply.len()];
-    client_visible_reader.read_exact(&mut observed).await.unwrap();
+    client_visible_reader
+        .read_exact(&mut observed)
+        .await
+        .unwrap();
     assert_eq!(observed, backend_reply);
     accept_task.await.unwrap();
 }
@@ -1026,7 +1062,10 @@ async fn proxy_protocol_v2_header_is_sent_before_probe() {
     .await;
 
     let mut observed = vec![0u8; backend_reply.len()];
-    client_visible_reader.read_exact(&mut observed).await.unwrap();
+    client_visible_reader
+        .read_exact(&mut observed)
+        .await
+        .unwrap();
     assert_eq!(observed, backend_reply);
     accept_task.await.unwrap();
 }
@@ -1086,7 +1125,10 @@ async fn proxy_protocol_v1_mixed_family_falls_back_to_unknown_header() {
     .await;
 
     let mut observed = vec![0u8; backend_reply.len()];
-    client_visible_reader.read_exact(&mut observed).await.unwrap();
+    client_visible_reader
+        .read_exact(&mut observed)
+        .await
+        .unwrap();
     assert_eq!(observed, backend_reply);
     accept_task.await.unwrap();
 }
@@ -1094,7 +1136,11 @@ async fn proxy_protocol_v1_mixed_family_falls_back_to_unknown_header() {
 #[cfg(unix)]
 #[tokio::test]
 async fn unix_socket_mask_path_forwards_probe_and_response() {
-    let sock_path = format!("/tmp/telemt-mask-test-{}-{}.sock", std::process::id(), rand::random::<u64>());
+    let sock_path = format!(
+        "/tmp/telemt-mask-test-{}-{}.sock",
+        std::process::id(),
+        rand::random::<u64>()
+    );
     let _ = std::fs::remove_file(&sock_path);
 
     let listener = UnixListener::bind(&sock_path).unwrap();
@@ -1138,7 +1184,10 @@ async fn unix_socket_mask_path_forwards_probe_and_response() {
     .await;
 
     let mut observed = vec![0u8; backend_reply.len()];
-    client_visible_reader.read_exact(&mut observed).await.unwrap();
+    client_visible_reader
+        .read_exact(&mut observed)
+        .await
+        .unwrap();
     assert_eq!(observed, backend_reply);
 
     accept_task.await.unwrap();
@@ -1171,7 +1220,10 @@ async fn mask_disabled_slowloris_connection_is_closed_by_consume_timeout() {
         .await;
     });
 
-    timeout(Duration::from_secs(1), task).await.unwrap().unwrap();
+    timeout(Duration::from_secs(1), task)
+        .await
+        .unwrap()
+        .unwrap();
 }
 
 #[tokio::test]
@@ -1329,14 +1381,20 @@ async fn relay_to_mask_keeps_backend_to_client_flow_when_client_to_backend_stall
 
     // Allow relay tasks to start, then emulate mask backend response.
     sleep(Duration::from_millis(20)).await;
-    backend_feed_writer.write_all(b"HTTP/1.1 200 OK\r\n\r\n").await.unwrap();
+    backend_feed_writer
+        .write_all(b"HTTP/1.1 200 OK\r\n\r\n")
+        .await
+        .unwrap();
     backend_feed_writer.shutdown().await.unwrap();
 
     let mut observed = vec![0u8; 19];
-    timeout(Duration::from_secs(1), client_visible_reader.read_exact(&mut observed))
-        .await
-        .unwrap()
-        .unwrap();
+    timeout(
+        Duration::from_secs(1),
+        client_visible_reader.read_exact(&mut observed),
+    )
+    .await
+    .unwrap()
+    .unwrap();
     assert_eq!(observed, b"HTTP/1.1 200 OK\r\n\r\n");
 
     relay.abort();
@@ -1394,14 +1452,23 @@ async fn relay_to_mask_preserves_backend_response_after_client_half_close() {
     client_write.shutdown().await.unwrap();
 
     let mut observed_resp = vec![0u8; response.len()];
-    timeout(Duration::from_secs(1), client_visible_reader.read_exact(&mut observed_resp))
+    timeout(
+        Duration::from_secs(1),
+        client_visible_reader.read_exact(&mut observed_resp),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    assert_eq!(observed_resp, response);
+
+    timeout(Duration::from_secs(1), fallback_task)
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(observed_resp, response);
-
-    timeout(Duration::from_secs(1), fallback_task).await.unwrap().unwrap();
-    timeout(Duration::from_secs(1), backend_task).await.unwrap().unwrap();
+    timeout(Duration::from_secs(1), backend_task)
+        .await
+        .unwrap()
+        .unwrap();
 }
 
 #[tokio::test]
@@ -1427,16 +1494,7 @@ async fn relay_to_mask_timeout_cancels_and_drops_all_io_endpoints() {
     let timed = timeout(
         Duration::from_millis(40),
         relay_to_mask(
-            reader,
-            writer,
-            mask_read,
-            mask_write,
-            b"",
-            false,
-            0,
-            0,
-            false,
-            0,
+            reader, writer, mask_read, mask_write, b"", false, 0, 0, false, 0,
         ),
     )
     .await;
@@ -1574,9 +1632,11 @@ async fn timing_matrix_masking_classes_under_controlled_inputs() {
         (mean, min, p95, max)
     }
 
-    let (disabled_mean, disabled_min, disabled_p95, disabled_max) = summarize(&mut disabled_samples);
+    let (disabled_mean, disabled_min, disabled_p95, disabled_max) =
+        summarize(&mut disabled_samples);
     let (refused_mean, refused_min, refused_p95, refused_max) = summarize(&mut refused_samples);
-    let (reachable_mean, reachable_min, reachable_p95, reachable_max) = summarize(&mut reachable_samples);
+    let (reachable_mean, reachable_min, reachable_p95, reachable_max) =
+        summarize(&mut reachable_samples);
 
     println!(
         "TIMING_MATRIX masking class=disabled_eof mean_ms={:.2} min_ms={} p95_ms={} max_ms={} bucket_mean={}",
@@ -1698,7 +1758,10 @@ async fn reachable_backend_one_response_then_silence_is_cut_by_idle_timeout() {
     let elapsed = started.elapsed();
 
     let mut observed = vec![0u8; response.len()];
-    client_visible_reader.read_exact(&mut observed).await.unwrap();
+    client_visible_reader
+        .read_exact(&mut observed)
+        .await
+        .unwrap();
     assert_eq!(observed, response);
     assert!(
         elapsed < Duration::from_millis(190),
@@ -1763,6 +1826,9 @@ async fn adversarial_client_drip_feed_longer_than_idle_timeout_is_cut_off() {
     let _ = client_writer_side.write_all(b"X").await;
     drop(client_writer_side);
 
-    timeout(Duration::from_secs(1), relay_task).await.unwrap().unwrap();
+    timeout(Duration::from_secs(1), relay_task)
+        .await
+        .unwrap()
+        .unwrap();
     accept_task.await.unwrap();
 }

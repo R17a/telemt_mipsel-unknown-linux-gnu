@@ -2,29 +2,29 @@
 
 #![allow(dead_code)]
 
-use std::net::SocketAddr;
+use dashmap::DashMap;
+use dashmap::mapref::entry::Entry;
 use std::collections::HashSet;
 use std::collections::hash_map::RandomState;
+use std::hash::{BuildHasher, Hash, Hasher};
+use std::net::SocketAddr;
 use std::net::{IpAddr, Ipv6Addr};
 use std::sync::Arc;
 use std::sync::{Mutex, OnceLock};
-use std::hash::{BuildHasher, Hash, Hasher};
 use std::time::{Duration, Instant};
-use dashmap::DashMap;
-use dashmap::mapref::entry::Entry;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
-use tracing::{debug, warn, trace};
+use tracing::{debug, trace, warn};
 use zeroize::{Zeroize, Zeroizing};
 
-use crate::crypto::{sha256, AesCtr, SecureRandom};
-use rand::RngExt;
+use crate::config::ProxyConfig;
+use crate::crypto::{AesCtr, SecureRandom, sha256};
+use crate::error::{HandshakeResult, ProxyError};
 use crate::protocol::constants::*;
 use crate::protocol::tls;
-use crate::stream::{FakeTlsReader, FakeTlsWriter, CryptoReader, CryptoWriter};
-use crate::error::{ProxyError, HandshakeResult};
 use crate::stats::ReplayChecker;
-use crate::config::ProxyConfig;
+use crate::stream::{CryptoReader, CryptoWriter, FakeTlsReader, FakeTlsWriter};
 use crate::tls_front::{TlsFrontCache, emulator};
+use rand::RngExt;
 
 const ACCESS_SECRET_BYTES: usize = 16;
 static INVALID_SECRET_WARNED: OnceLock<Mutex<HashSet<(String, String)>>> = OnceLock::new();
@@ -67,7 +67,8 @@ struct AuthProbeSaturationState {
 }
 
 static AUTH_PROBE_STATE: OnceLock<DashMap<IpAddr, AuthProbeState>> = OnceLock::new();
-static AUTH_PROBE_SATURATION_STATE: OnceLock<Mutex<Option<AuthProbeSaturationState>>> = OnceLock::new();
+static AUTH_PROBE_SATURATION_STATE: OnceLock<Mutex<Option<AuthProbeSaturationState>>> =
+    OnceLock::new();
 static AUTH_PROBE_EVICTION_HASHER: OnceLock<RandomState> = OnceLock::new();
 
 fn auth_probe_state_map() -> &'static DashMap<IpAddr, AuthProbeState> {
@@ -78,8 +79,8 @@ fn auth_probe_saturation_state() -> &'static Mutex<Option<AuthProbeSaturationSta
     AUTH_PROBE_SATURATION_STATE.get_or_init(|| Mutex::new(None))
 }
 
-fn auth_probe_saturation_state_lock(
-) -> std::sync::MutexGuard<'static, Option<AuthProbeSaturationState>> {
+fn auth_probe_saturation_state_lock()
+-> std::sync::MutexGuard<'static, Option<AuthProbeSaturationState>> {
     auth_probe_saturation_state()
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner())
@@ -252,9 +253,7 @@ fn auth_probe_record_failure_with_state(
                     match eviction_candidate {
                         Some((_, current_fail, current_seen))
                             if fail_streak > current_fail
-                                || (fail_streak == current_fail && last_seen >= current_seen) =>
-                        {
-                        }
+                                || (fail_streak == current_fail && last_seen >= current_seen) => {}
                         _ => eviction_candidate = Some((key, fail_streak, last_seen)),
                     }
                 }
@@ -284,9 +283,7 @@ fn auth_probe_record_failure_with_state(
                 match eviction_candidate {
                     Some((_, current_fail, current_seen))
                         if fail_streak > current_fail
-                            || (fail_streak == current_fail && last_seen >= current_seen) =>
-                    {
-                    }
+                            || (fail_streak == current_fail && last_seen >= current_seen) => {}
                     _ => eviction_candidate = Some((key, fail_streak, last_seen)),
                 }
                 if auth_probe_state_expired(entry.value(), now) {
@@ -306,9 +303,7 @@ fn auth_probe_record_failure_with_state(
                     match eviction_candidate {
                         Some((_, current_fail, current_seen))
                             if fail_streak > current_fail
-                                || (fail_streak == current_fail && last_seen >= current_seen) =>
-                        {
-                        }
+                                || (fail_streak == current_fail && last_seen >= current_seen) => {}
                         _ => eviction_candidate = Some((key, fail_streak, last_seen)),
                     }
                     if auth_probe_state_expired(entry.value(), now) {
@@ -539,13 +534,12 @@ pub struct HandshakeSuccess {
     /// Decryption key and IV (for reading from client)
     pub dec_key: [u8; 32],
     pub dec_iv: u128,
-    /// Encryption key and IV (for writing to client) 
+    /// Encryption key and IV (for writing to client)
     pub enc_key: [u8; 32],
     pub enc_iv: u128,
     /// Client address
     pub peer: SocketAddr,
     /// Whether TLS was used
-    
     pub is_tls: bool,
 }
 
@@ -603,7 +597,7 @@ where
             auth_probe_record_failure(peer.ip(), Instant::now());
             maybe_apply_server_hello_delay(config).await;
             debug!(
-                peer = %peer, 
+                peer = %peer,
                 ignore_time_skew = config.access.ignore_time_skew,
                 "TLS handshake validation failed - no matching user or time skew"
             );
@@ -769,7 +763,6 @@ where
     let decoded_users = decode_user_secrets(config, preferred_user);
 
     for (user, secret) in decoded_users {
-
         let dec_prekey = &dec_prekey_iv[..PREKEY_LEN];
         let dec_iv_bytes = &dec_prekey_iv[PREKEY_LEN..];
 
@@ -820,12 +813,12 @@ where
 
         let encryptor = AesCtr::new(&enc_key, enc_iv);
 
-// Apply replay tracking only after successful authentication.
-    //
-    // This ordering prevents an attacker from producing invalid handshakes that
-    // still collide with a valid handshake's replay slot and thus evict a valid
-    // entry from the cache. We accept the cost of performing the full
-    // authentication check first to avoid poisoning the replay cache.
+        // Apply replay tracking only after successful authentication.
+        //
+        // This ordering prevents an attacker from producing invalid handshakes that
+        // still collide with a valid handshake's replay slot and thus evict a valid
+        // entry from the cache. We accept the cost of performing the full
+        // authentication check first to avoid poisoning the replay cache.
         if replay_checker.check_and_add_handshake(dec_prekey_iv) {
             auth_probe_record_failure(peer.ip(), Instant::now());
             maybe_apply_server_hello_delay(config).await;
@@ -872,7 +865,7 @@ where
 
 /// Generate nonce for Telegram connection
 pub fn generate_tg_nonce(
-    proto_tag: ProtoTag, 
+    proto_tag: ProtoTag,
     dc_idx: i16,
     client_enc_key: &[u8; 32],
     client_enc_iv: u128,
@@ -885,13 +878,19 @@ pub fn generate_tg_nonce(
             continue;
         };
 
-        if RESERVED_NONCE_FIRST_BYTES.contains(&nonce[0]) { continue; }
+        if RESERVED_NONCE_FIRST_BYTES.contains(&nonce[0]) {
+            continue;
+        }
 
         let first_four: [u8; 4] = [nonce[0], nonce[1], nonce[2], nonce[3]];
-        if RESERVED_NONCE_BEGINNINGS.contains(&first_four) { continue; }
+        if RESERVED_NONCE_BEGINNINGS.contains(&first_four) {
+            continue;
+        }
 
         let continue_four: [u8; 4] = [nonce[4], nonce[5], nonce[6], nonce[7]];
-        if RESERVED_NONCE_CONTINUES.contains(&continue_four) { continue; }
+        if RESERVED_NONCE_CONTINUES.contains(&continue_four) {
+            continue;
+        }
 
         nonce[PROTO_TAG_POS..PROTO_TAG_POS + 4].copy_from_slice(&proto_tag.to_bytes());
         // CRITICAL: write dc_idx so upstream DC knows where to route
@@ -942,7 +941,7 @@ pub fn encrypt_tg_nonce_with_ciphers(nonce: &[u8; HANDSHAKE_LEN]) -> (Vec<u8>, A
     let dec_iv = u128::from_be_bytes(dec_iv_arr);
 
     let mut encryptor = AesCtr::new(&enc_key, enc_iv);
-    let encrypted_full = encryptor.encrypt(nonce);  // counter: 0 → 4
+    let encrypted_full = encryptor.encrypt(nonce); // counter: 0 → 4
 
     let mut result = nonce[..PROTO_TAG_POS].to_vec();
     result.extend_from_slice(&encrypted_full[PROTO_TAG_POS..]);

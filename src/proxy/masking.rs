@@ -1,19 +1,19 @@
 //! Masking - forward unrecognized traffic to mask host
 
-use std::str;
-use std::net::SocketAddr;
-use std::time::Duration;
-use rand::{Rng, RngExt};
-use tokio::net::TcpStream;
-#[cfg(unix)]
-use tokio::net::UnixStream;
-use tokio::io::{AsyncRead, AsyncWrite, AsyncReadExt, AsyncWriteExt};
-use tokio::time::{Instant, timeout};
-use tracing::debug;
 use crate::config::ProxyConfig;
 use crate::network::dns_overrides::resolve_socket_addr;
 use crate::stats::beobachten::BeobachtenStore;
 use crate::transport::proxy_protocol::{ProxyProtocolV1Builder, ProxyProtocolV2Builder};
+use rand::{Rng, RngExt};
+use std::net::SocketAddr;
+use std::str;
+use std::time::Duration;
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::net::TcpStream;
+#[cfg(unix)]
+use tokio::net::UnixStream;
+use tokio::time::{Instant, timeout};
+use tracing::debug;
 
 #[cfg(not(test))]
 const MASK_TIMEOUT: Duration = Duration::from_secs(5);
@@ -98,8 +98,7 @@ async fn maybe_write_shape_padding<W>(
     cap: usize,
     above_cap_blur: bool,
     above_cap_blur_max_bytes: usize,
-)
-where
+) where
     W: AsyncWrite + Unpin,
 {
     if !enabled {
@@ -167,7 +166,10 @@ async fn consume_client_data_with_timeout<R>(reader: R)
 where
     R: AsyncRead + Unpin,
 {
-    if timeout(MASK_RELAY_TIMEOUT, consume_client_data(reader)).await.is_err() {
+    if timeout(MASK_RELAY_TIMEOUT, consume_client_data(reader))
+        .await
+        .is_err()
+    {
         debug!("Timed out while consuming client data on masking fallback path");
     }
 }
@@ -213,9 +215,12 @@ async fn wait_mask_outcome_budget(started: Instant, config: &ProxyConfig) {
 fn detect_client_type(data: &[u8]) -> &'static str {
     // Check for HTTP request
     if data.len() > 4
-        && (data.starts_with(b"GET ") || data.starts_with(b"POST") ||
-           data.starts_with(b"HEAD") || data.starts_with(b"PUT ") ||
-           data.starts_with(b"DELETE") || data.starts_with(b"OPTIONS"))
+        && (data.starts_with(b"GET ")
+            || data.starts_with(b"POST")
+            || data.starts_with(b"HEAD")
+            || data.starts_with(b"PUT ")
+            || data.starts_with(b"DELETE")
+            || data.starts_with(b"OPTIONS"))
     {
         return "HTTP";
     }
@@ -252,16 +257,12 @@ fn build_mask_proxy_header(
         ),
         _ => {
             let header = match (peer, local_addr) {
-                (SocketAddr::V4(src), SocketAddr::V4(dst)) => {
-                    ProxyProtocolV1Builder::new()
-                        .tcp4(src.into(), dst.into())
-                        .build()
-                }
-                (SocketAddr::V6(src), SocketAddr::V6(dst)) => {
-                    ProxyProtocolV1Builder::new()
-                        .tcp6(src.into(), dst.into())
-                        .build()
-                }
+                (SocketAddr::V4(src), SocketAddr::V4(dst)) => ProxyProtocolV1Builder::new()
+                    .tcp4(src.into(), dst.into())
+                    .build(),
+                (SocketAddr::V6(src), SocketAddr::V6(dst)) => ProxyProtocolV1Builder::new()
+                    .tcp6(src.into(), dst.into())
+                    .build(),
                 _ => ProxyProtocolV1Builder::new().build(),
             };
             Some(header)
@@ -278,8 +279,7 @@ pub async fn handle_bad_client<R, W>(
     local_addr: SocketAddr,
     config: &ProxyConfig,
     beobachten: &BeobachtenStore,
-)
-where
+) where
     R: AsyncRead + Unpin + Send + 'static,
     W: AsyncWrite + Unpin + Send + 'static,
 {
@@ -311,8 +311,11 @@ where
         match connect_result {
             Ok(Ok(stream)) => {
                 let (mask_read, mut mask_write) = stream.into_split();
-                let proxy_header =
-                    build_mask_proxy_header(config.censorship.mask_proxy_protocol, peer, local_addr);
+                let proxy_header = build_mask_proxy_header(
+                    config.censorship.mask_proxy_protocol,
+                    peer,
+                    local_addr,
+                );
                 if let Some(header) = proxy_header {
                     if !write_proxy_header_with_timeout(&mut mask_write, &header).await {
                         wait_mask_outcome_budget(outcome_started, config).await;
@@ -356,7 +359,10 @@ where
         return;
     }
 
-    let mask_host = config.censorship.mask_host.as_deref()
+    let mask_host = config
+        .censorship
+        .mask_host
+        .as_deref()
         .unwrap_or(&config.censorship.tls_domain);
     let mask_port = config.censorship.mask_port;
 
@@ -435,8 +441,7 @@ async fn relay_to_mask<R, W, MR, MW>(
     shape_bucket_cap_bytes: usize,
     shape_above_cap_blur: bool,
     shape_above_cap_blur_max_bytes: usize,
-)
-where
+) where
     R: AsyncRead + Unpin + Send + 'static,
     W: AsyncWrite + Unpin + Send + 'static,
     MR: AsyncRead + Unpin + Send + 'static,
@@ -455,9 +460,8 @@ where
             let copied = copy_with_idle_timeout(&mut reader, &mut mask_write).await;
             let total_sent = initial_data.len().saturating_add(copied.total);
 
-            let should_shape = shape_hardening_enabled
-                && copied.ended_by_eof
-                && !initial_data.is_empty();
+            let should_shape =
+                shape_hardening_enabled && copied.ended_by_eof && !initial_data.is_empty();
 
             maybe_write_shape_padding(
                 &mut mask_write,

@@ -1047,8 +1047,7 @@ impl Default for GeneralConfig {
             me_pool_drain_soft_evict_per_writer: default_me_pool_drain_soft_evict_per_writer(),
             me_pool_drain_soft_evict_budget_per_core:
                 default_me_pool_drain_soft_evict_budget_per_core(),
-            me_pool_drain_soft_evict_cooldown_ms:
-                default_me_pool_drain_soft_evict_cooldown_ms(),
+            me_pool_drain_soft_evict_cooldown_ms: default_me_pool_drain_soft_evict_cooldown_ms(),
             me_bind_stale_mode: MeBindStaleMode::default(),
             me_bind_stale_ttl_secs: default_me_bind_stale_ttl_secs(),
             me_pool_min_fresh_ratio: default_me_pool_min_fresh_ratio(),

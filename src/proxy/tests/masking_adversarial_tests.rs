@@ -1,13 +1,13 @@
 use super::*;
-use std::sync::Arc;
-use tokio::io::duplex;
-use tokio::net::TcpListener;
-use tokio::time::{Instant, Duration};
 use crate::config::ProxyConfig;
 use crate::proxy::relay::relay_bidirectional;
 use crate::stats::Stats;
 use crate::stats::beobachten::BeobachtenStore;
 use crate::stream::BufferPool;
+use std::sync::Arc;
+use tokio::io::duplex;
+use tokio::net::TcpListener;
+use tokio::time::{Duration, Instant};
 
 // ------------------------------------------------------------------
 // Probing Indistinguishability (OWASP ASVS 5.1.7)
@@ -19,7 +19,7 @@ async fn masking_probes_indistinguishable_timing() {
     config.censorship.mask = true;
     config.censorship.mask_host = Some("127.0.0.1".to_string());
     config.censorship.mask_port = 80; // Should timeout/refuse
-    
+
     let peer: SocketAddr = "192.0.2.10:443".parse().unwrap();
     let local_addr: SocketAddr = "127.0.0.1:443".parse().unwrap();
     let beobachten = BeobachtenStore::new();
@@ -28,14 +28,17 @@ async fn masking_probes_indistinguishable_timing() {
     let probes = vec![
         (b"GET / HTTP/1.1\r\nHost: x\r\n\r\n".to_vec(), "HTTP"),
         (b"SSH-2.0-probe".to_vec(), "SSH"),
-        (vec![0x16, 0x03, 0x03, 0x00, 0x05, 0x01, 0x00, 0x00, 0x01, 0x00], "TLS-scanner"),
+        (
+            vec![0x16, 0x03, 0x03, 0x00, 0x05, 0x01, 0x00, 0x00, 0x01, 0x00],
+            "TLS-scanner",
+        ),
         (vec![0x42; 5], "port-scanner"),
     ];
 
     for (probe, type_name) in probes {
         let (client_reader, _client_writer) = duplex(256);
         let (_client_visible_reader, client_visible_writer) = duplex(256);
-        
+
         let start = Instant::now();
         handle_bad_client(
             client_reader,
@@ -45,13 +48,17 @@ async fn masking_probes_indistinguishable_timing() {
             local_addr,
             &config,
             &beobachten,
-        ).await;
-        
+        )
+        .await;
+
         let elapsed = start.elapsed();
-        
+
         // We expect any outcome to take roughly MASK_TIMEOUT (50ms in tests)
         // to mask whether the backend was reachable or refused.
-        assert!(elapsed >= Duration::from_millis(30), "Probe {type_name} finished too fast: {elapsed:?}");
+        assert!(
+            elapsed >= Duration::from_millis(30),
+            "Probe {type_name} finished too fast: {elapsed:?}"
+        );
     }
 }
 
@@ -76,7 +83,7 @@ async fn masking_budget_stress_under_load() {
         let (_client_visible_reader, client_visible_writer) = duplex(256);
         let config = config.clone();
         let beobachten = Arc::clone(&beobachten);
-        
+
         tasks.push(tokio::spawn(async move {
             let start = Instant::now();
             handle_bad_client(
@@ -87,14 +94,18 @@ async fn masking_budget_stress_under_load() {
                 local_addr,
                 &config,
                 &beobachten,
-            ).await;
+            )
+            .await;
             start.elapsed()
         }));
     }
 
     for task in tasks {
         let elapsed = task.await.unwrap();
-        assert!(elapsed >= Duration::from_millis(30), "Stress probe finished too fast: {elapsed:?}");
+        assert!(
+            elapsed >= Duration::from_millis(30),
+            "Stress probe finished too fast: {elapsed:?}"
+        );
     }
 }
 
@@ -108,10 +119,10 @@ fn test_detect_client_type_boundary_cases() {
     assert_eq!(detect_client_type(&[0x42; 9]), "port-scanner");
     // 10 bytes = unknown
     assert_eq!(detect_client_type(&[0x42; 10]), "unknown");
-    
+
     // HTTP verbs without trailing space
     assert_eq!(detect_client_type(b"GET/"), "port-scanner"); // because len < 10
-    assert_eq!(detect_client_type(b"GET /path"), "HTTP"); 
+    assert_eq!(detect_client_type(b"GET /path"), "HTTP");
 }
 
 // ------------------------------------------------------------------
@@ -133,7 +144,9 @@ async fn masking_slowloris_client_idle_timeout_rejected() {
             assert_eq!(observed, initial);
 
             let mut drip = [0u8; 1];
-            let drip_read = tokio::time::timeout(Duration::from_millis(220), stream.read_exact(&mut drip)).await;
+            let drip_read =
+                tokio::time::timeout(Duration::from_millis(220), stream.read_exact(&mut drip))
+                    .await;
             assert!(
                 drip_read.is_err() || drip_read.unwrap().is_err(),
                 "backend must not receive post-timeout slowloris drip bytes"
@@ -183,18 +196,31 @@ async fn masking_fallback_down_mimics_timeout() {
     config.censorship.mask = true;
     config.censorship.mask_host = Some("127.0.0.1".to_string());
     config.censorship.mask_port = 1; // Unlikely port
-    
+
     let (server_reader, server_writer) = duplex(1024);
     let beobachten = BeobachtenStore::new();
     let peer: SocketAddr = "192.0.2.12:12345".parse().unwrap();
     let local: SocketAddr = "192.0.2.1:443".parse().unwrap();
 
     let start = Instant::now();
-    handle_bad_client(server_reader, server_writer, b"GET / HTTP/1.1\r\n", peer, local, &config, &beobachten).await;
-    
+    handle_bad_client(
+        server_reader,
+        server_writer,
+        b"GET / HTTP/1.1\r\n",
+        peer,
+        local,
+        &config,
+        &beobachten,
+    )
+    .await;
+
     let elapsed = start.elapsed();
     // It should wait for MASK_TIMEOUT (50ms in tests) even if connection was refused immediately
-    assert!(elapsed >= Duration::from_millis(40), "Must respect connect budget even on failure: {:?}", elapsed);
+    assert!(
+        elapsed >= Duration::from_millis(40),
+        "Must respect connect budget even on failure: {:?}",
+        elapsed
+    );
 }
 
 // ------------------------------------------------------------------
@@ -205,7 +231,13 @@ async fn masking_fallback_down_mimics_timeout() {
 async fn masking_ssrf_resolve_internal_ranges_blocked() {
     use crate::network::dns_overrides::resolve_socket_addr;
 
-    let blocked_ips = ["127.0.0.1", "169.254.169.254", "10.0.0.1", "192.168.1.1", "0.0.0.0"];
+    let blocked_ips = [
+        "127.0.0.1",
+        "169.254.169.254",
+        "10.0.0.1",
+        "192.168.1.1",
+        "0.0.0.0",
+    ];
 
     for ip in blocked_ips {
         assert!(
@@ -270,7 +302,10 @@ async fn masking_zero_length_initial_data_does_not_hang_or_panic() {
             .await
             .unwrap()
             .unwrap();
-        assert_eq!(n, 0, "backend must observe clean EOF for empty initial payload");
+        assert_eq!(
+            n, 0,
+            "backend must observe clean EOF for empty initial payload"
+        );
     });
 
     let mut config = ProxyConfig::default();
@@ -312,7 +347,10 @@ async fn masking_oversized_initial_payload_is_forwarded_verbatim() {
             let (mut stream, _) = listener.accept().await.unwrap();
             let mut observed = vec![0u8; payload.len()];
             stream.read_exact(&mut observed).await.unwrap();
-            assert_eq!(observed, payload, "large initial payload must stay byte-for-byte");
+            assert_eq!(
+                observed, payload,
+                "large initial payload must stay byte-for-byte"
+            );
         }
     });
 
@@ -491,7 +529,10 @@ async fn chaos_burst_reconnect_storm_for_masking_and_relay_concurrently() {
             });
 
             let mut observed = vec![0u8; expected_reply.len()];
-            client_visible_reader.read_exact(&mut observed).await.unwrap();
+            client_visible_reader
+                .read_exact(&mut observed)
+                .await
+                .unwrap();
             assert_eq!(observed, expected_reply);
 
             timeout(Duration::from_secs(2), handle)
@@ -646,7 +687,10 @@ async fn chaos_burst_reconnect_storm_for_masking_and_relay_multiwave_soak() {
                 });
 
                 let mut observed = vec![0u8; expected_reply.len()];
-                client_visible_reader.read_exact(&mut observed).await.unwrap();
+                client_visible_reader
+                    .read_exact(&mut observed)
+                    .await
+                    .unwrap();
                 assert_eq!(observed, expected_reply);
 
                 timeout(Duration::from_secs(3), handle)

@@ -3,7 +3,7 @@ use crate::error::ProxyError;
 use crate::stats::Stats;
 use crate::stream::BufferPool;
 use std::sync::Arc;
-use tokio::io::{duplex, AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, duplex};
 use tokio::time::{Duration, Instant, timeout};
 
 // ------------------------------------------------------------------
@@ -14,7 +14,7 @@ use tokio::time::{Duration, Instant, timeout};
 async fn relay_hol_blocking_prevention_regression() {
     let stats = Arc::new(Stats::new());
     let user = "hol-user";
-    
+
     let (client_peer, relay_client) = duplex(65536);
     let (relay_server, server_peer) = duplex(65536);
 
@@ -42,7 +42,7 @@ async fn relay_hol_blocking_prevention_regression() {
 
     let s2c_handle = tokio::spawn(async move {
         sp_writer.write_all(&s2c_payload).await.unwrap();
-        
+
         let mut total_read = 0;
         let mut buf = [0u8; 10];
         while total_read < payload_size {
@@ -54,12 +54,16 @@ async fn relay_hol_blocking_prevention_regression() {
 
     let start = Instant::now();
     cp_writer.write_all(&c2s_payload).await.unwrap();
-    
+
     let mut server_buf = vec![0u8; payload_size];
     sp_reader.read_exact(&mut server_buf).await.unwrap();
     let elapsed = start.elapsed();
 
-    assert!(elapsed < Duration::from_millis(1000), "C->S must not be blocked by slow S->C (HOL blocking): {:?}", elapsed);
+    assert!(
+        elapsed < Duration::from_millis(1000),
+        "C->S must not be blocked by slow S->C (HOL blocking): {:?}",
+        elapsed
+    );
     assert_eq!(server_buf, c2s_payload);
 
     s2c_handle.abort();
@@ -75,7 +79,7 @@ async fn relay_quota_mid_session_cutoff() {
     let stats = Arc::new(Stats::new());
     let user = "quota-mid-user";
     let quota = 5000;
-    
+
     let (client_peer, relay_client) = duplex(8192);
     let (relay_server, server_peer) = duplex(8192);
 
@@ -106,9 +110,9 @@ async fn relay_quota_mid_session_cutoff() {
     // Send another 2000 bytes (Total 6000 > 5000)
     let buf2 = vec![0x42; 2000];
     let _ = cp_writer.write_all(&buf2).await;
-    
+
     let relay_res = timeout(Duration::from_secs(1), relay_task).await.unwrap();
-    
+
     match relay_res {
         Ok(Err(ProxyError::DataQuotaExceeded { .. })) => {
             // Expected
@@ -155,7 +159,10 @@ async fn relay_chaos_half_close_crossfire_terminates_without_hang() {
         .await
         .expect("relay must terminate after bilateral half-close")
         .expect("relay task must not panic");
-    assert!(done.is_ok(), "relay must terminate cleanly under half-close crossfire");
+    assert!(
+        done.is_ok(),
+        "relay must terminate cleanly under half-close crossfire"
+    );
 }
 
 #[tokio::test]

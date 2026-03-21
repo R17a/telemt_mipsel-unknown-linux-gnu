@@ -23,9 +23,19 @@ async fn active_window_enforces_large_unique_ip_burst() {
         .await;
 
     for idx in 0..64 {
-        assert!(tracker.check_and_add("burst_user", ip_from_idx(idx)).await.is_ok());
+        assert!(
+            tracker
+                .check_and_add("burst_user", ip_from_idx(idx))
+                .await
+                .is_ok()
+        );
     }
-    assert!(tracker.check_and_add("burst_user", ip_from_idx(9_999)).await.is_err());
+    assert!(
+        tracker
+            .check_and_add("burst_user", ip_from_idx(9_999))
+            .await
+            .is_err()
+    );
     assert_eq!(tracker.get_active_ip_count("burst_user").await, 64);
 }
 
@@ -36,19 +46,30 @@ async fn global_limit_applies_across_many_users() {
 
     for user_idx in 0..150u32 {
         let user = format!("u{}", user_idx);
-        assert!(tracker.check_and_add(&user, ip_from_idx(user_idx * 10)).await.is_ok());
-        assert!(tracker
-            .check_and_add(&user, ip_from_idx(user_idx * 10 + 1))
-            .await
-            .is_ok());
-        assert!(tracker
-            .check_and_add(&user, ip_from_idx(user_idx * 10 + 2))
-            .await
-            .is_ok());
-        assert!(tracker
-            .check_and_add(&user, ip_from_idx(user_idx * 10 + 3))
-            .await
-            .is_err());
+        assert!(
+            tracker
+                .check_and_add(&user, ip_from_idx(user_idx * 10))
+                .await
+                .is_ok()
+        );
+        assert!(
+            tracker
+                .check_and_add(&user, ip_from_idx(user_idx * 10 + 1))
+                .await
+                .is_ok()
+        );
+        assert!(
+            tracker
+                .check_and_add(&user, ip_from_idx(user_idx * 10 + 2))
+                .await
+                .is_ok()
+        );
+        assert!(
+            tracker
+                .check_and_add(&user, ip_from_idx(user_idx * 10 + 3))
+                .await
+                .is_err()
+        );
     }
 
     assert_eq!(tracker.get_stats().await.len(), 150);
@@ -61,9 +82,24 @@ async fn user_zero_override_falls_back_to_global_limit() {
     limits.insert("target".to_string(), 0);
     tracker.load_limits(2, &limits).await;
 
-    assert!(tracker.check_and_add("target", ip_from_idx(1)).await.is_ok());
-    assert!(tracker.check_and_add("target", ip_from_idx(2)).await.is_ok());
-    assert!(tracker.check_and_add("target", ip_from_idx(3)).await.is_err());
+    assert!(
+        tracker
+            .check_and_add("target", ip_from_idx(1))
+            .await
+            .is_ok()
+    );
+    assert!(
+        tracker
+            .check_and_add("target", ip_from_idx(2))
+            .await
+            .is_ok()
+    );
+    assert!(
+        tracker
+            .check_and_add("target", ip_from_idx(3))
+            .await
+            .is_err()
+    );
     assert_eq!(tracker.get_user_limit("target").await, Some(2));
 }
 
@@ -293,7 +329,11 @@ async fn concurrent_many_users_isolate_limits() {
 
     let stats = tracker.get_stats().await;
     assert_eq!(stats.len(), 120);
-    assert!(stats.iter().all(|(_, active, limit)| *active <= 4 && *limit == 4));
+    assert!(
+        stats
+            .iter()
+            .all(|(_, active, limit)| *active <= 4 && *limit == 4)
+    );
 }
 
 #[tokio::test]
@@ -314,7 +354,10 @@ async fn same_ip_reconnect_high_frequency_keeps_single_unique() {
 async fn format_stats_contains_expected_limited_and_unlimited_markers() {
     let tracker = UserIpTracker::new();
     tracker.set_user_limit("limited", 2).await;
-    tracker.check_and_add("limited", ip_from_idx(1)).await.unwrap();
+    tracker
+        .check_and_add("limited", ip_from_idx(1))
+        .await
+        .unwrap();
     tracker.check_and_add("open", ip_from_idx(2)).await.unwrap();
 
     let text = tracker.format_stats().await;
@@ -333,8 +376,16 @@ async fn stats_report_global_default_for_users_without_override() {
     tracker.check_and_add("b", ip_from_idx(2)).await.unwrap();
 
     let stats = tracker.get_stats().await;
-    assert!(stats.iter().any(|(user, _, limit)| user == "a" && *limit == 5));
-    assert!(stats.iter().any(|(user, _, limit)| user == "b" && *limit == 5));
+    assert!(
+        stats
+            .iter()
+            .any(|(user, _, limit)| user == "a" && *limit == 5)
+    );
+    assert!(
+        stats
+            .iter()
+            .any(|(user, _, limit)| user == "b" && *limit == 5)
+    );
 }
 
 #[tokio::test]
@@ -382,7 +433,10 @@ async fn active_and_recent_views_match_after_mixed_workload() {
     tracker.set_user_limit("mix", 16).await;
 
     for ip_idx in 0..12u32 {
-        tracker.check_and_add("mix", ip_from_idx(ip_idx)).await.unwrap();
+        tracker
+            .check_and_add("mix", ip_from_idx(ip_idx))
+            .await
+            .unwrap();
     }
     for ip_idx in 0..6u32 {
         tracker.remove_ip("mix", ip_from_idx(ip_idx)).await;
@@ -453,19 +507,19 @@ async fn concurrent_reconnect_and_disconnect_preserves_non_negative_counts() {
 async fn enqueue_cleanup_recovers_from_poisoned_mutex() {
     let tracker = UserIpTracker::new();
     let ip = ip_from_idx(99);
-    
+
     // Poison the lock by panicking while holding it
     let result = std::panic::catch_unwind(|| {
         let _guard = tracker.cleanup_queue.lock().unwrap();
         panic!("Intentional poison panic");
     });
     assert!(result.is_err(), "Expected panic to poison mutex");
-    
+
     // Attempt to enqueue anyway; should hit the poison catch arm and still insert
     tracker.enqueue_cleanup("poison-user".to_string(), ip);
-    
+
     tracker.drain_cleanup_queue().await;
-    
+
     assert_eq!(tracker.get_active_ip_count("poison-user").await, 0);
 }
 
@@ -474,7 +528,7 @@ async fn mass_reconnect_sync_cleanup_prevents_temporary_reservation_bloat() {
     // Tests that synchronous M-01 drop mechanism protects against starvation
     let tracker = Arc::new(UserIpTracker::new());
     tracker.set_user_limit("mass", 5).await;
-    
+
     let ip = ip_from_idx(42);
     let mut join_handles = Vec::new();
 
@@ -496,7 +550,11 @@ async fn mass_reconnect_sync_cleanup_prevents_temporary_reservation_bloat() {
 
     // Force flush
     tracker.drain_cleanup_queue().await;
-    assert_eq!(tracker.get_active_ip_count("mass").await, 0, "No leaked footprints");
+    assert_eq!(
+        tracker.get_active_ip_count("mass").await,
+        0,
+        "No leaked footprints"
+    );
 }
 
 #[tokio::test]
@@ -524,9 +582,7 @@ async fn adversarial_drain_cleanup_queue_race_does_not_cause_false_rejections() 
         let drain_handle = tokio::spawn(async move {
             tracker_a.drain_cleanup_queue().await;
         });
-        let handle = tokio::spawn(async move {
-            tracker_b.check_and_add("racer", ip2).await
-        });
+        let handle = tokio::spawn(async move { tracker_b.check_and_add("racer", ip2).await });
 
         drain_handle.await.unwrap();
         let res = handle.await.unwrap();
@@ -598,7 +654,10 @@ async fn stress_repeated_queue_poison_recovery_preserves_admission_progress() {
     let ip_primary = ip_from_idx(7201);
     let ip_alt = ip_from_idx(7202);
 
-    tracker.check_and_add("poison-stress", ip_primary).await.unwrap();
+    tracker
+        .check_and_add("poison-stress", ip_primary)
+        .await
+        .unwrap();
 
     for _ in 0..64 {
         let _ = std::panic::catch_unwind(|| {
@@ -614,6 +673,9 @@ async fn stress_repeated_queue_poison_recovery_preserves_admission_progress() {
         );
 
         tracker.remove_ip("poison-stress", ip_alt).await;
-        tracker.check_and_add("poison-stress", ip_primary).await.unwrap();
+        tracker
+            .check_and_add("poison-stress", ip_primary)
+            .await
+            .unwrap();
     }
 }

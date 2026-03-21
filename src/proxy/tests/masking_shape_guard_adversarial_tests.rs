@@ -1,6 +1,6 @@
 use super::*;
-use tokio::io::{duplex, empty, sink, AsyncReadExt, AsyncWriteExt};
-use tokio::time::{sleep, timeout, Duration};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, duplex, empty, sink};
+use tokio::time::{Duration, sleep, timeout};
 
 fn oracle_len(
     total_sent: usize,
@@ -54,17 +54,23 @@ async fn run_relay_case(
         client_writer.shutdown().await.unwrap();
     }
 
-    timeout(Duration::from_secs(2), relay).await.unwrap().unwrap();
+    timeout(Duration::from_secs(2), relay)
+        .await
+        .unwrap()
+        .unwrap();
 
     if !close_client {
         drop(client_writer);
     }
 
     let mut observed = Vec::new();
-    timeout(Duration::from_secs(2), mask_observer.read_to_end(&mut observed))
-        .await
-        .unwrap()
-        .unwrap();
+    timeout(
+        Duration::from_secs(2),
+        mask_observer.read_to_end(&mut observed),
+    )
+    .await
+    .unwrap()
+    .unwrap();
     observed
 }
 
@@ -97,12 +103,29 @@ async fn masking_shape_guard_positive_clean_eof_path_shapes_and_preserves_prefix
     let extra = vec![0x55; 300];
     let total = initial.len() + extra.len();
 
-    let observed = run_relay_case(initial.clone(), extra.clone(), true, true, 512, 4096, false, 0).await;
+    let observed = run_relay_case(
+        initial.clone(),
+        extra.clone(),
+        true,
+        true,
+        512,
+        4096,
+        false,
+        0,
+    )
+    .await;
 
     let expected_len = oracle_len(total, true, true, initial.len(), 512, 4096);
-    assert_eq!(observed.len(), expected_len, "clean EOF path must be bucket-shaped");
+    assert_eq!(
+        observed.len(),
+        expected_len,
+        "clean EOF path must be bucket-shaped"
+    );
     assert_eq!(&observed[..initial.len()], initial.as_slice());
-    assert_eq!(&observed[initial.len()..(initial.len() + extra.len())], extra.as_slice());
+    assert_eq!(
+        &observed[initial.len()..(initial.len() + extra.len())],
+        extra.as_slice()
+    );
 }
 
 #[tokio::test]
@@ -112,7 +135,11 @@ async fn masking_shape_guard_edge_empty_initial_remains_transparent_under_clean_
 
     let observed = run_relay_case(initial, extra.clone(), true, true, 512, 4096, false, 0).await;
 
-    assert_eq!(observed.len(), extra.len(), "empty initial_data must never trigger shaping");
+    assert_eq!(
+        observed.len(),
+        extra.len(),
+        "empty initial_data must never trigger shaping"
+    );
     assert_eq!(observed, extra);
 }
 
@@ -212,13 +239,19 @@ async fn masking_shape_guard_stress_parallel_mixed_sessions_keep_oracle_and_no_h
                 assert_eq!(&observed[..initial_len], initial.as_slice());
             }
             if extra_len > 0 {
-                assert_eq!(&observed[initial_len..(initial_len + extra_len)], extra.as_slice());
+                assert_eq!(
+                    &observed[initial_len..(initial_len + extra_len)],
+                    extra.as_slice()
+                );
             }
         }));
     }
 
     for task in tasks {
-        timeout(Duration::from_secs(3), task).await.unwrap().unwrap();
+        timeout(Duration::from_secs(3), task)
+            .await
+            .unwrap()
+            .unwrap();
     }
 }
 
@@ -238,7 +271,10 @@ async fn masking_shape_guard_integration_slow_drip_timeout_is_cut_without_tail_l
 
             let mut one = [0u8; 1];
             let r = timeout(Duration::from_millis(220), stream.read_exact(&mut one)).await;
-            assert!(r.is_err() || r.unwrap().is_err(), "no post-timeout drip/tail may reach backend");
+            assert!(
+                r.is_err() || r.unwrap().is_err(),
+                "no post-timeout drip/tail may reach backend"
+            );
         }
     });
 
@@ -274,8 +310,14 @@ async fn masking_shape_guard_integration_slow_drip_timeout_is_cut_without_tail_l
     sleep(Duration::from_millis(160)).await;
     let _ = client_writer.write_all(b"X").await;
 
-    timeout(Duration::from_secs(2), relay).await.unwrap().unwrap();
-    timeout(Duration::from_secs(2), accept_task).await.unwrap().unwrap();
+    timeout(Duration::from_secs(2), relay)
+        .await
+        .unwrap()
+        .unwrap();
+    timeout(Duration::from_secs(2), accept_task)
+        .await
+        .unwrap()
+        .unwrap();
 }
 
 #[tokio::test]
@@ -352,7 +394,10 @@ async fn masking_shape_guard_above_cap_blur_parallel_stress_keeps_bounds() {
     }
 
     for task in tasks {
-        timeout(Duration::from_secs(3), task).await.unwrap().unwrap();
+        timeout(Duration::from_secs(3), task)
+            .await
+            .unwrap()
+            .unwrap();
     }
 }
 

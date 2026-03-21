@@ -1,7 +1,7 @@
 use super::*;
 use crate::config::{UpstreamConfig, UpstreamType};
 use std::sync::Arc;
-use tokio::io::{duplex, AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, duplex};
 use tokio::net::TcpListener;
 use tokio::time::{Duration, Instant};
 
@@ -163,21 +163,36 @@ async fn diagnostic_timing_profiles_are_within_realistic_guardrails() {
         );
 
         assert!(p50 >= 650, "p50 too low for delayed reject class={}", class);
-        assert!(p95 <= 1200, "p95 too high for delayed reject class={}", class);
-        assert!(max <= 1500, "max too high for delayed reject class={}", class);
+        assert!(
+            p95 <= 1200,
+            "p95 too high for delayed reject class={}",
+            class
+        );
+        assert!(
+            max <= 1500,
+            "max too high for delayed reject class={}",
+            class
+        );
     }
 }
 
 #[tokio::test]
 async fn diagnostic_forwarded_size_profiles_by_probe_class() {
-    let classes = [0usize, 1usize, 7usize, 17usize, 63usize, 511usize, 1023usize, 2047usize];
+    let classes = [
+        0usize, 1usize, 7usize, 17usize, 63usize, 511usize, 1023usize, 2047usize,
+    ];
     let mut observed = Vec::new();
 
     for class in classes {
         let len = capture_forwarded_len(class).await;
         println!("diagnostic_shape class={} forwarded_len={}", class, len);
         observed.push(len as u128);
-        assert_eq!(len, 5 + class, "unexpected forwarded len for class={}", class);
+        assert_eq!(
+            len,
+            5 + class,
+            "unexpected forwarded len for class={}",
+            class
+        );
     }
 
     let p50 = percentile_ms(observed.clone(), 50, 100);

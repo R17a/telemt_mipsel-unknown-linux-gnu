@@ -7,7 +7,7 @@ use crate::config::{UpstreamConfig, UpstreamType};
 use crate::protocol::constants::MIN_TLS_CLIENT_HELLO_SIZE;
 use std::net::SocketAddr;
 use std::time::Duration;
-use tokio::io::{duplex, AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, duplex};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::time::sleep;
 
@@ -48,7 +48,12 @@ fn truncated_in_range_record(actual_body_len: usize) -> Vec<u8> {
     out
 }
 
-async fn write_fragmented<W: AsyncWriteExt + Unpin>(writer: &mut W, bytes: &[u8], chunks: &[usize], delay_ms: u64) {
+async fn write_fragmented<W: AsyncWriteExt + Unpin>(
+    writer: &mut W,
+    bytes: &[u8],
+    chunks: &[usize],
+    delay_ms: u64,
+) {
     let mut offset = 0usize;
     for &chunk in chunks {
         if offset >= bytes.len() {
@@ -130,10 +135,13 @@ async fn run_blackhat_generic_fragmented_probe_should_mask(
     client_side.shutdown().await.unwrap();
 
     let mut observed = vec![0u8; backend_reply.len()];
-    tokio::time::timeout(Duration::from_secs(2), client_side.read_exact(&mut observed))
-        .await
-        .unwrap()
-        .unwrap();
+    tokio::time::timeout(
+        Duration::from_secs(2),
+        client_side.read_exact(&mut observed),
+    )
+    .await
+    .unwrap()
+    .unwrap();
     assert_eq!(observed, backend_reply);
 
     tokio::time::timeout(Duration::from_secs(2), mask_accept_task)
@@ -311,10 +319,13 @@ async fn blackhat_truncated_in_range_clienthello_generic_stream_should_mask() {
     // Security expectation: even malformed in-range TLS should be masked.
     // This invariant must hold to avoid probe-distinguishable EOF/timeout behavior.
     let mut observed = vec![0u8; backend_reply.len()];
-    tokio::time::timeout(Duration::from_secs(2), client_side.read_exact(&mut observed))
-        .await
-        .unwrap()
-        .unwrap();
+    tokio::time::timeout(
+        Duration::from_secs(2),
+        client_side.read_exact(&mut observed),
+    )
+    .await
+    .unwrap()
+    .unwrap();
     assert_eq!(observed, backend_reply);
 
     tokio::time::timeout(Duration::from_secs(2), mask_accept_task)

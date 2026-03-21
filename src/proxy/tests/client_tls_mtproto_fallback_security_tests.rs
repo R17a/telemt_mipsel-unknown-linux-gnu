@@ -2,16 +2,11 @@ use super::*;
 use crate::config::{UpstreamConfig, UpstreamType};
 use crate::crypto::sha256_hmac;
 use crate::protocol::constants::{
-    HANDSHAKE_LEN,
-    MAX_TLS_CIPHERTEXT_SIZE,
-    TLS_RECORD_ALERT,
-    TLS_RECORD_APPLICATION,
-    TLS_RECORD_CHANGE_CIPHER,
-    TLS_RECORD_HANDSHAKE,
-    TLS_VERSION,
+    HANDSHAKE_LEN, MAX_TLS_CIPHERTEXT_SIZE, TLS_RECORD_ALERT, TLS_RECORD_APPLICATION,
+    TLS_RECORD_CHANGE_CIPHER, TLS_RECORD_HANDSHAKE, TLS_VERSION,
 };
 use crate::protocol::tls;
-use tokio::io::{duplex, AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, duplex};
 use tokio::net::TcpListener;
 
 struct PipelineHarness {
@@ -74,7 +69,10 @@ fn build_harness(secret_hex: &str, mask_port: u16) -> PipelineHarness {
 }
 
 fn make_valid_tls_client_hello(secret: &[u8], timestamp: u32, tls_len: usize, fill: u8) -> Vec<u8> {
-    assert!(tls_len <= u16::MAX as usize, "TLS length must fit into record header");
+    assert!(
+        tls_len <= u16::MAX as usize,
+        "TLS length must fit into record header"
+    );
 
     let total_len = 5 + tls_len;
     let mut handshake = vec![fill; total_len];
@@ -181,11 +179,17 @@ async fn tls_bad_mtproto_fallback_preserves_wire_and_backend_response() {
     client_side.write_all(&client_hello).await.unwrap();
 
     let mut tls_response_head = [0u8; 5];
-    client_side.read_exact(&mut tls_response_head).await.unwrap();
+    client_side
+        .read_exact(&mut tls_response_head)
+        .await
+        .unwrap();
     assert_eq!(tls_response_head[0], 0x16);
     read_and_discard_tls_record_body(&mut client_side, tls_response_head).await;
 
-    client_side.write_all(&invalid_mtproto_record).await.unwrap();
+    client_side
+        .write_all(&invalid_mtproto_record)
+        .await
+        .unwrap();
     client_side.write_all(&trailing_record).await.unwrap();
 
     tokio::time::timeout(Duration::from_secs(3), accept_task)
@@ -246,10 +250,16 @@ async fn tls_bad_mtproto_fallback_keeps_connects_bad_accounting() {
     client_side.write_all(&client_hello).await.unwrap();
 
     let mut tls_response_head = [0u8; 5];
-    client_side.read_exact(&mut tls_response_head).await.unwrap();
+    client_side
+        .read_exact(&mut tls_response_head)
+        .await
+        .unwrap();
     assert_eq!(tls_response_head[0], 0x16);
 
-    client_side.write_all(&invalid_mtproto_record).await.unwrap();
+    client_side
+        .write_all(&invalid_mtproto_record)
+        .await
+        .unwrap();
     client_side.write_all(&trailing_record).await.unwrap();
 
     tokio::time::timeout(Duration::from_secs(3), accept_task)
@@ -264,7 +274,11 @@ async fn tls_bad_mtproto_fallback_keeps_connects_bad_accounting() {
         .unwrap();
 
     let bad_after = stats_for_assert.get_connects_bad();
-    assert_eq!(bad_after, bad_before + 1, "connects_bad must increase exactly once for invalid MTProto after valid TLS");
+    assert_eq!(
+        bad_after,
+        bad_before + 1,
+        "connects_bad must increase exactly once for invalid MTProto after valid TLS"
+    );
 }
 
 #[tokio::test]
@@ -310,10 +324,16 @@ async fn tls_bad_mtproto_fallback_forwards_zero_length_tls_record_verbatim() {
     client_side.write_all(&client_hello).await.unwrap();
 
     let mut tls_response_head = [0u8; 5];
-    client_side.read_exact(&mut tls_response_head).await.unwrap();
+    client_side
+        .read_exact(&mut tls_response_head)
+        .await
+        .unwrap();
     assert_eq!(tls_response_head[0], 0x16);
 
-    client_side.write_all(&invalid_mtproto_record).await.unwrap();
+    client_side
+        .write_all(&invalid_mtproto_record)
+        .await
+        .unwrap();
     client_side.write_all(&trailing_record).await.unwrap();
 
     tokio::time::timeout(Duration::from_secs(3), accept_task)
@@ -372,10 +392,16 @@ async fn tls_bad_mtproto_fallback_forwards_max_tls_record_verbatim() {
     client_side.write_all(&client_hello).await.unwrap();
 
     let mut tls_response_head = [0u8; 5];
-    client_side.read_exact(&mut tls_response_head).await.unwrap();
+    client_side
+        .read_exact(&mut tls_response_head)
+        .await
+        .unwrap();
     assert_eq!(tls_response_head[0], 0x16);
 
-    client_side.write_all(&invalid_mtproto_record).await.unwrap();
+    client_side
+        .write_all(&invalid_mtproto_record)
+        .await
+        .unwrap();
     client_side.write_all(&trailing_record).await.unwrap();
 
     tokio::time::timeout(Duration::from_secs(3), accept_task)
@@ -399,7 +425,8 @@ async fn tls_bad_mtproto_fallback_light_fuzz_tls_record_lengths_verbatim() {
         let backend_addr = listener.local_addr().unwrap();
 
         let secret = [0x85u8; 16];
-        let client_hello = make_valid_tls_client_hello(&secret, idx as u32 + 4, 600, 0x46 + idx as u8);
+        let client_hello =
+            make_valid_tls_client_hello(&secret, idx as u32 + 4, 600, 0x46 + idx as u8);
         let invalid_mtproto = vec![0u8; HANDSHAKE_LEN];
         let invalid_mtproto_record = wrap_tls_application_data(&invalid_mtproto);
 
@@ -443,10 +470,16 @@ async fn tls_bad_mtproto_fallback_light_fuzz_tls_record_lengths_verbatim() {
         client_side.write_all(&client_hello).await.unwrap();
 
         let mut tls_response_head = [0u8; 5];
-        client_side.read_exact(&mut tls_response_head).await.unwrap();
+        client_side
+            .read_exact(&mut tls_response_head)
+            .await
+            .unwrap();
         assert_eq!(tls_response_head[0], 0x16);
 
-        client_side.write_all(&invalid_mtproto_record).await.unwrap();
+        client_side
+            .write_all(&invalid_mtproto_record)
+            .await
+            .unwrap();
         client_side.write_all(&trailing_record).await.unwrap();
 
         tokio::time::timeout(Duration::from_secs(3), accept_task)
@@ -498,7 +531,10 @@ async fn tls_bad_mtproto_fallback_concurrent_sessions_are_isolated() {
             );
         }
 
-        assert!(remaining.is_empty(), "all expected client sessions must be matched exactly once");
+        assert!(
+            remaining.is_empty(),
+            "all expected client sessions must be matched exactly once"
+        );
     });
 
     let mut client_tasks = Vec::with_capacity(sessions);
@@ -506,7 +542,8 @@ async fn tls_bad_mtproto_fallback_concurrent_sessions_are_isolated() {
     for idx in 0..sessions {
         let harness = build_harness("86868686868686868686868686868686", backend_addr.port());
         let secret = [0x86u8; 16];
-        let client_hello = make_valid_tls_client_hello(&secret, idx as u32 + 100, 600, 0x60 + idx as u8);
+        let client_hello =
+            make_valid_tls_client_hello(&secret, idx as u32 + 100, 600, 0x60 + idx as u8);
         let invalid_mtproto = vec![0u8; HANDSHAKE_LEN];
         let invalid_mtproto_record = wrap_tls_application_data(&invalid_mtproto);
         let trailing_payload = vec![idx as u8; 64 + idx];
@@ -538,10 +575,16 @@ async fn tls_bad_mtproto_fallback_concurrent_sessions_are_isolated() {
             client_side.write_all(&client_hello).await.unwrap();
 
             let mut tls_response_head = [0u8; 5];
-            client_side.read_exact(&mut tls_response_head).await.unwrap();
+            client_side
+                .read_exact(&mut tls_response_head)
+                .await
+                .unwrap();
             assert_eq!(tls_response_head[0], 0x16);
 
-            client_side.write_all(&invalid_mtproto_record).await.unwrap();
+            client_side
+                .write_all(&invalid_mtproto_record)
+                .await
+                .unwrap();
             client_side.write_all(&trailing_record).await.unwrap();
 
             drop(client_side);
@@ -606,10 +649,16 @@ async fn tls_bad_mtproto_fallback_forwards_fragmented_client_writes_verbatim() {
     client_side.write_all(&client_hello).await.unwrap();
 
     let mut tls_response_head = [0u8; 5];
-    client_side.read_exact(&mut tls_response_head).await.unwrap();
+    client_side
+        .read_exact(&mut tls_response_head)
+        .await
+        .unwrap();
     assert_eq!(tls_response_head[0], 0x16);
 
-    client_side.write_all(&invalid_mtproto_record).await.unwrap();
+    client_side
+        .write_all(&invalid_mtproto_record)
+        .await
+        .unwrap();
 
     for chunk in trailing_record.chunks(3) {
         client_side.write_all(chunk).await.unwrap();
@@ -669,10 +718,16 @@ async fn tls_bad_mtproto_fallback_header_fragmentation_bytewise_is_verbatim() {
     client_side.write_all(&client_hello).await.unwrap();
 
     let mut tls_response_head = [0u8; 5];
-    client_side.read_exact(&mut tls_response_head).await.unwrap();
+    client_side
+        .read_exact(&mut tls_response_head)
+        .await
+        .unwrap();
     assert_eq!(tls_response_head[0], 0x16);
 
-    client_side.write_all(&invalid_mtproto_record).await.unwrap();
+    client_side
+        .write_all(&invalid_mtproto_record)
+        .await
+        .unwrap();
     for b in trailing_record.iter().copied() {
         client_side.write_all(&[b]).await.unwrap();
     }
@@ -736,10 +791,16 @@ async fn tls_bad_mtproto_fallback_record_splitting_chaos_is_verbatim() {
     client_side.write_all(&client_hello).await.unwrap();
 
     let mut tls_response_head = [0u8; 5];
-    client_side.read_exact(&mut tls_response_head).await.unwrap();
+    client_side
+        .read_exact(&mut tls_response_head)
+        .await
+        .unwrap();
     assert_eq!(tls_response_head[0], 0x16);
 
-    client_side.write_all(&invalid_mtproto_record).await.unwrap();
+    client_side
+        .write_all(&invalid_mtproto_record)
+        .await
+        .unwrap();
 
     let chaos = [7usize, 1, 19, 3, 5, 31, 2, 11, 13, 17];
     let mut pos = 0usize;
@@ -747,7 +808,10 @@ async fn tls_bad_mtproto_fallback_record_splitting_chaos_is_verbatim() {
     while pos < trailing_record.len() {
         let step = chaos[idx % chaos.len()];
         let end = (pos + step).min(trailing_record.len());
-        client_side.write_all(&trailing_record[pos..end]).await.unwrap();
+        client_side
+            .write_all(&trailing_record[pos..end])
+            .await
+            .unwrap();
         pos = end;
         idx += 1;
     }
@@ -809,10 +873,16 @@ async fn tls_bad_mtproto_fallback_multiple_tls_records_are_forwarded_in_order() 
 
     client_side.write_all(&client_hello).await.unwrap();
     let mut tls_response_head = [0u8; 5];
-    client_side.read_exact(&mut tls_response_head).await.unwrap();
+    client_side
+        .read_exact(&mut tls_response_head)
+        .await
+        .unwrap();
     assert_eq!(tls_response_head[0], 0x16);
 
-    client_side.write_all(&invalid_mtproto_record).await.unwrap();
+    client_side
+        .write_all(&invalid_mtproto_record)
+        .await
+        .unwrap();
     client_side.write_all(&r1).await.unwrap();
     client_side.write_all(&r2).await.unwrap();
     client_side.write_all(&r3).await.unwrap();
@@ -848,7 +918,10 @@ async fn tls_bad_mtproto_fallback_client_half_close_propagates_eof_to_backend() 
 
         let mut tail = [0u8; 1];
         let n = stream.read(&mut tail).await.unwrap();
-        assert_eq!(n, 0, "backend must observe EOF after client write half-close");
+        assert_eq!(
+            n, 0,
+            "backend must observe EOF after client write half-close"
+        );
     });
 
     let harness = build_harness("8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b", backend_addr.port());
@@ -874,10 +947,16 @@ async fn tls_bad_mtproto_fallback_client_half_close_propagates_eof_to_backend() 
 
     client_side.write_all(&client_hello).await.unwrap();
     let mut tls_response_head = [0u8; 5];
-    client_side.read_exact(&mut tls_response_head).await.unwrap();
+    client_side
+        .read_exact(&mut tls_response_head)
+        .await
+        .unwrap();
     assert_eq!(tls_response_head[0], 0x16);
 
-    client_side.write_all(&invalid_mtproto_record).await.unwrap();
+    client_side
+        .write_all(&invalid_mtproto_record)
+        .await
+        .unwrap();
     client_side.write_all(&trailing_record).await.unwrap();
     client_side.shutdown().await.unwrap();
 
@@ -938,11 +1017,17 @@ async fn tls_bad_mtproto_fallback_backend_half_close_after_response_is_tolerated
 
     client_side.write_all(&client_hello).await.unwrap();
     let mut tls_response_head = [0u8; 5];
-    client_side.read_exact(&mut tls_response_head).await.unwrap();
+    client_side
+        .read_exact(&mut tls_response_head)
+        .await
+        .unwrap();
     assert_eq!(tls_response_head[0], 0x16);
     read_and_discard_tls_record_body(&mut client_side, tls_response_head).await;
 
-    client_side.write_all(&invalid_mtproto_record).await.unwrap();
+    client_side
+        .write_all(&invalid_mtproto_record)
+        .await
+        .unwrap();
     client_side.write_all(&trailing_record).await.unwrap();
 
     tokio::time::timeout(Duration::from_secs(3), accept_task)
@@ -994,10 +1079,16 @@ async fn tls_bad_mtproto_fallback_backend_reset_after_clienthello_is_handled() {
 
     client_side.write_all(&client_hello).await.unwrap();
     let mut tls_response_head = [0u8; 5];
-    client_side.read_exact(&mut tls_response_head).await.unwrap();
+    client_side
+        .read_exact(&mut tls_response_head)
+        .await
+        .unwrap();
     assert_eq!(tls_response_head[0], 0x16);
 
-    client_side.write_all(&invalid_mtproto_record).await.unwrap();
+    client_side
+        .write_all(&invalid_mtproto_record)
+        .await
+        .unwrap();
     let write_res = client_side.write_all(&trailing_record).await;
     assert!(
         write_res.is_ok() || write_res.is_err(),
@@ -1068,10 +1159,16 @@ async fn tls_bad_mtproto_fallback_backend_slow_reader_preserves_byte_identity() 
 
     client_side.write_all(&client_hello).await.unwrap();
     let mut tls_response_head = [0u8; 5];
-    client_side.read_exact(&mut tls_response_head).await.unwrap();
+    client_side
+        .read_exact(&mut tls_response_head)
+        .await
+        .unwrap();
     assert_eq!(tls_response_head[0], 0x16);
 
-    client_side.write_all(&invalid_mtproto_record).await.unwrap();
+    client_side
+        .write_all(&invalid_mtproto_record)
+        .await
+        .unwrap();
     client_side.write_all(&trailing_record).await.unwrap();
 
     tokio::time::timeout(Duration::from_secs(5), accept_task)
@@ -1152,7 +1249,10 @@ async fn tls_bad_mtproto_fallback_replay_pressure_masks_replay_without_serverhel
                 let mut head = [0u8; 5];
                 client_side.read_exact(&mut head).await.unwrap();
                 assert_eq!(head[0], 0x16);
-                client_side.write_all(&invalid_mtproto_record).await.unwrap();
+                client_side
+                    .write_all(&invalid_mtproto_record)
+                    .await
+                    .unwrap();
                 client_side.write_all(&trailing_record).await.unwrap();
             } else {
                 let mut one = [0u8; 1];
@@ -1241,10 +1341,16 @@ async fn tls_bad_mtproto_fallback_large_multi_record_chaos_under_backpressure() 
 
     client_side.write_all(&client_hello).await.unwrap();
     let mut tls_response_head = [0u8; 5];
-    client_side.read_exact(&mut tls_response_head).await.unwrap();
+    client_side
+        .read_exact(&mut tls_response_head)
+        .await
+        .unwrap();
     assert_eq!(tls_response_head[0], 0x16);
 
-    client_side.write_all(&invalid_mtproto_record).await.unwrap();
+    client_side
+        .write_all(&invalid_mtproto_record)
+        .await
+        .unwrap();
 
     let chaos = [5usize, 23, 11, 47, 3, 19, 29, 13, 7, 31];
     for record in [&a, &b, &c] {
@@ -1316,10 +1422,16 @@ async fn tls_bad_mtproto_fallback_interleaved_control_and_application_records_ve
 
     client_side.write_all(&client_hello).await.unwrap();
     let mut tls_response_head = [0u8; 5];
-    client_side.read_exact(&mut tls_response_head).await.unwrap();
+    client_side
+        .read_exact(&mut tls_response_head)
+        .await
+        .unwrap();
     assert_eq!(tls_response_head[0], 0x16);
 
-    client_side.write_all(&invalid_mtproto_record).await.unwrap();
+    client_side
+        .write_all(&invalid_mtproto_record)
+        .await
+        .unwrap();
     client_side.write_all(&ccs).await.unwrap();
     client_side.write_all(&app).await.unwrap();
     client_side.write_all(&alert).await.unwrap();
@@ -1372,7 +1484,10 @@ async fn tls_bad_mtproto_fallback_many_short_sessions_with_chaos_no_cross_leak()
             );
         }
 
-        assert!(remaining.is_empty(), "all expected sessions must be consumed exactly once");
+        assert!(
+            remaining.is_empty(),
+            "all expected sessions must be consumed exactly once"
+        );
     });
 
     let mut tasks = Vec::with_capacity(sessions);
@@ -1413,7 +1528,10 @@ async fn tls_bad_mtproto_fallback_many_short_sessions_with_chaos_no_cross_leak()
             client_side.read_exact(&mut head).await.unwrap();
             assert_eq!(head[0], 0x16);
 
-            client_side.write_all(&invalid_mtproto_record).await.unwrap();
+            client_side
+                .write_all(&invalid_mtproto_record)
+                .await
+                .unwrap();
             for chunk in record.chunks((idx % 9) + 1) {
                 client_side.write_all(chunk).await.unwrap();
             }
@@ -2520,7 +2638,10 @@ async fn blackhat_coalesced_tail_parallel_32_sessions_no_cross_bleed() {
                 "session mixup detected in parallel-32 blackhat test"
             );
         }
-        assert!(remaining.is_empty(), "all expected sessions must be consumed");
+        assert!(
+            remaining.is_empty(),
+            "all expected sessions must be consumed"
+        );
     });
 
     let mut tasks = Vec::with_capacity(sessions);

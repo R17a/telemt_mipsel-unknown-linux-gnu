@@ -1,8 +1,4 @@
-use super::{
-    MAX_TLS_CIPHERTEXT_SIZE,
-    MAX_TLS_PLAINTEXT_SIZE,
-    MIN_TLS_CLIENT_HELLO_SIZE,
-};
+use super::{MAX_TLS_CIPHERTEXT_SIZE, MAX_TLS_PLAINTEXT_SIZE, MIN_TLS_CLIENT_HELLO_SIZE};
 
 #[test]
 fn tls_size_constants_match_rfc_8446() {

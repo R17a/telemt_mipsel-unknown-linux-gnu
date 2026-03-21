@@ -1,5 +1,5 @@
 use super::*;
-use tokio::io::{duplex, empty, sink, AsyncReadExt, AsyncWrite};
+use tokio::io::{AsyncReadExt, AsyncWrite, duplex, empty, sink};
 
 struct CountingWriter {
     written: usize,
@@ -46,7 +46,10 @@ fn shape_bucket_clamps_to_cap_when_next_power_of_two_exceeds_cap() {
 fn shape_bucket_never_drops_below_total_for_valid_ranges() {
     for total in [1usize, 32, 127, 512, 999, 1000, 1001, 1499, 1500, 1501] {
         let bucket = next_mask_shape_bucket(total, 1000, 1500);
-        assert!(bucket >= total || total >= 1500, "bucket={bucket} total={total}");
+        assert!(
+            bucket >= total || total >= 1500,
+            "bucket={bucket} total={total}"
+        );
     }
 }
 

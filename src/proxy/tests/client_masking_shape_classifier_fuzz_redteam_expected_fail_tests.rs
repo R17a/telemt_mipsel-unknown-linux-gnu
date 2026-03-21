@@ -1,7 +1,7 @@
 use super::*;
 use crate::config::{UpstreamConfig, UpstreamType};
 use std::sync::Arc;
-use tokio::io::{duplex, AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, duplex};
 use tokio::net::TcpListener;
 use tokio::time::Duration;
 
@@ -172,7 +172,10 @@ async fn redteam_fuzz_01_hardened_output_length_correlation_should_be_below_0_2(
     let y_hard: Vec<f64> = hardened.iter().map(|v| *v as f64).collect();
 
     let corr_hard = pearson_corr(&x, &y_hard).abs();
-    println!("redteam_fuzz corr_hardened={corr_hard:.4} samples={}", sizes.len());
+    println!(
+        "redteam_fuzz corr_hardened={corr_hard:.4} samples={}",
+        sizes.len()
+    );
 
     assert!(
         corr_hard < 0.2,
@@ -234,9 +237,7 @@ async fn redteam_fuzz_03_hardened_signal_must_be_10x_lower_than_plain() {
     let corr_plain = pearson_corr(&x, &y_plain).abs();
     let corr_hard = pearson_corr(&x, &y_hard).abs();
 
-    println!(
-        "redteam_fuzz corr_plain={corr_plain:.4} corr_hardened={corr_hard:.4}"
-    );
+    println!("redteam_fuzz corr_plain={corr_plain:.4} corr_hardened={corr_hard:.4}");
 
     assert!(
         corr_hard <= corr_plain * 0.1,

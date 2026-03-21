@@ -205,8 +205,14 @@ async fn send_proxy_req_does_not_replay_when_first_bind_commit_fails() {
         .await;
 
     assert!(result.is_ok());
-    assert_eq!(recv_data_count(&mut stale_rx, Duration::from_millis(50)).await, 0);
-    assert_eq!(recv_data_count(&mut live_rx, Duration::from_millis(50)).await, 1);
+    assert_eq!(
+        recv_data_count(&mut stale_rx, Duration::from_millis(50)).await,
+        0
+    );
+    assert_eq!(
+        recv_data_count(&mut live_rx, Duration::from_millis(50)).await,
+        1
+    );
 
     let bound = pool.registry.get_writer(conn_id).await;
     assert!(bound.is_some());
@@ -258,9 +264,18 @@ async fn send_proxy_req_prunes_iterative_stale_bind_failures_without_data_replay
         .await;
 
     assert!(result.is_ok());
-    assert_eq!(recv_data_count(&mut stale_rx_1, Duration::from_millis(50)).await, 0);
-    assert_eq!(recv_data_count(&mut stale_rx_2, Duration::from_millis(50)).await, 0);
-    assert_eq!(recv_data_count(&mut live_rx, Duration::from_millis(50)).await, 1);
+    assert_eq!(
+        recv_data_count(&mut stale_rx_1, Duration::from_millis(50)).await,
+        0
+    );
+    assert_eq!(
+        recv_data_count(&mut stale_rx_2, Duration::from_millis(50)).await,
+        0
+    );
+    assert_eq!(
+        recv_data_count(&mut live_rx, Duration::from_millis(50)).await,
+        1
+    );
 
     let writers = pool.writers.read().await;
     let writer_ids = writers.iter().map(|w| w.id).collect::<Vec<_>>();

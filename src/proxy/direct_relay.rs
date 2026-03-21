@@ -1,10 +1,10 @@
+use std::collections::HashSet;
 use std::ffi::OsString;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::net::SocketAddr;
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
-use std::collections::HashSet;
 use std::sync::{Mutex, OnceLock};
 
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, ReadHalf, WriteHalf, split};
@@ -26,9 +26,9 @@ use crate::stream::{BufferPool, CryptoReader, CryptoWriter};
 use crate::transport::UpstreamManager;
 
 #[cfg(unix)]
-use std::os::unix::fs::OpenOptionsExt;
-#[cfg(unix)]
 use std::os::unix::ffi::OsStrExt;
+#[cfg(unix)]
+use std::os::unix::fs::OpenOptionsExt;
 #[cfg(unix)]
 use std::os::unix::io::{AsRawFd, FromRawFd};
 
@@ -160,7 +160,9 @@ fn open_unknown_dc_log_append(path: &Path) -> std::io::Result<std::fs::File> {
     }
 }
 
-fn open_unknown_dc_log_append_anchored(path: &SanitizedUnknownDcLogPath) -> std::io::Result<std::fs::File> {
+fn open_unknown_dc_log_append_anchored(
+    path: &SanitizedUnknownDcLogPath,
+) -> std::io::Result<std::fs::File> {
     #[cfg(unix)]
     {
         let parent = OpenOptions::new()
@@ -168,14 +170,23 @@ fn open_unknown_dc_log_append_anchored(path: &SanitizedUnknownDcLogPath) -> std:
             .custom_flags(libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC)
             .open(&path.allowed_parent)?;
 
-        let file_name = std::ffi::CString::new(path.file_name.as_os_str().as_bytes())
-            .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidInput, "unknown DC log file name contains NUL byte"))?;
+        let file_name =
+            std::ffi::CString::new(path.file_name.as_os_str().as_bytes()).map_err(|_| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "unknown DC log file name contains NUL byte",
+                )
+            })?;
 
         let fd = unsafe {
             libc::openat(
                 parent.as_raw_fd(),
                 file_name.as_ptr(),
-                libc::O_CREAT | libc::O_APPEND | libc::O_WRONLY | libc::O_NOFOLLOW | libc::O_CLOEXEC,
+                libc::O_CREAT
+                    | libc::O_APPEND
+                    | libc::O_WRONLY
+                    | libc::O_NOFOLLOW
+                    | libc::O_CLOEXEC,
                 0o600,
             )
         };

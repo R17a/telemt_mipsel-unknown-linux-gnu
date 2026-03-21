@@ -6,10 +6,10 @@ use std::future::poll_fn;
 use std::io;
 use std::pin::Pin;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
-use std::task::{Context, Poll};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::task::Waker;
+use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, ReadBuf};
 use tokio::io::{AsyncReadExt, AsyncWrite, AsyncWriteExt, duplex};
 use tokio::time::{Duration, timeout};
@@ -60,7 +60,10 @@ async fn quota_lock_contention_does_not_self_wake_pending_writer() {
     let mut cx = Context::from_waker(&waker);
 
     let poll = Pin::new(&mut io).poll_write(&mut cx, &[0x11]);
-    assert!(poll.is_pending(), "writer must remain pending while lock is contended");
+    assert!(
+        poll.is_pending(),
+        "writer must remain pending while lock is contended"
+    );
     assert_eq!(
         wake_counter.wakes.load(Ordering::Relaxed),
         0,
@@ -99,7 +102,10 @@ async fn quota_lock_contention_writer_schedules_single_deferred_wake_until_lock_
     let mut cx = Context::from_waker(&waker);
 
     let first = Pin::new(&mut io).poll_write(&mut cx, &[0x11]);
-    assert!(first.is_pending(), "writer must remain pending while lock is contended");
+    assert!(
+        first.is_pending(),
+        "writer must remain pending while lock is contended"
+    );
     assert_eq!(
         wake_counter.wakes.load(Ordering::Relaxed),
         0,
@@ -123,7 +129,10 @@ async fn quota_lock_contention_writer_schedules_single_deferred_wake_until_lock_
     );
 
     let second = Pin::new(&mut io).poll_write(&mut cx, &[0x22]);
-    assert!(second.is_pending(), "writer remains pending while lock is still held");
+    assert!(
+        second.is_pending(),
+        "writer remains pending while lock is still held"
+    );
 
     for _ in 0..8 {
         tokio::task::yield_now().await;
@@ -136,7 +145,10 @@ async fn quota_lock_contention_writer_schedules_single_deferred_wake_until_lock_
 
     drop(held_lock);
     let released = Pin::new(&mut io).poll_write(&mut cx, &[0x33]);
-    assert!(released.is_ready(), "writer must make progress once quota lock is released");
+    assert!(
+        released.is_ready(),
+        "writer must make progress once quota lock is released"
+    );
 }
 
 #[tokio::test]
@@ -172,7 +184,10 @@ async fn quota_lock_contention_read_path_schedules_deferred_wake_for_liveness() 
     let mut buf = ReadBuf::new(&mut storage);
 
     let first = Pin::new(&mut io).poll_read(&mut cx, &mut buf);
-    assert!(first.is_pending(), "reader must remain pending while lock is contended");
+    assert!(
+        first.is_pending(),
+        "reader must remain pending while lock is contended"
+    );
     assert_eq!(
         wake_counter.wakes.load(Ordering::Relaxed),
         0,
@@ -193,7 +208,10 @@ async fn quota_lock_contention_read_path_schedules_deferred_wake_for_liveness() 
     drop(held_lock);
     let mut buf_after_release = ReadBuf::new(&mut storage);
     let released = Pin::new(&mut io).poll_read(&mut cx, &mut buf_after_release);
-    assert!(released.is_ready(), "reader must make progress once quota lock is released");
+    assert!(
+        released.is_ready(),
+        "reader must make progress once quota lock is released"
+    );
 }
 
 #[tokio::test]
@@ -297,7 +315,8 @@ async fn relay_bidirectional_does_not_forward_server_bytes_after_quota_is_exhaus
 }
 
 #[tokio::test]
-async fn relay_bidirectional_does_not_leak_partial_server_payload_when_remaining_quota_is_smaller_than_write() {
+async fn relay_bidirectional_does_not_leak_partial_server_payload_when_remaining_quota_is_smaller_than_write()
+ {
     let stats = Arc::new(Stats::new());
     let quota_user = "partial-leak-user";
     stats.add_user_octets_from(quota_user, 3);
@@ -569,7 +588,7 @@ async fn relay_bidirectional_terminates_on_activity_timeout() {
 
     // Wait past the activity timeout threshold (1800 seconds) + buffer
     tokio::time::sleep(Duration::from_secs(1805)).await;
-    
+
     // Resume time to process timeouts
     tokio::time::resume();
 
@@ -582,7 +601,7 @@ async fn relay_bidirectional_terminates_on_activity_timeout() {
         relay_result.is_ok(),
         "relay should complete successfully on scheduled inactivity timeout"
     );
-    
+
     // Verify client/server sockets are closed
     drop(client_peer);
     drop(server_peer);
@@ -634,12 +653,13 @@ async fn relay_bidirectional_watchdog_resists_premature_execution() {
         relay_result.is_err(),
         "Relay must not exit prematurely as long as activity was received before timeout"
     );
-    
+
     // Explicitly drop sockets to cleanly shut down relay loop
     drop(client_peer);
     drop(server_peer);
-    
-    let completion = timeout(Duration::from_secs(1), relay_task).await
+
+    let completion = timeout(Duration::from_secs(1), relay_task)
+        .await
         .expect("relay task must complete securely after client disconnection")
         .expect("relay task must not panic");
     assert!(completion.is_ok(), "relay exits clean");
@@ -654,16 +674,29 @@ async fn relay_bidirectional_half_closure_terminates_cleanly() {
     let (server_reader, server_writer) = tokio::io::split(relay_server);
 
     let relay_task = tokio::spawn(relay_bidirectional(
-        client_reader, client_writer, server_reader, server_writer, 1024, 1024, "half-close", stats, None, Arc::new(BufferPool::new()),
+        client_reader,
+        client_writer,
+        server_reader,
+        server_writer,
+        1024,
+        1024,
+        "half-close",
+        stats,
+        None,
+        Arc::new(BufferPool::new()),
     ));
-    
+
     // Half closure: drop the client completely but leave the server active.
     drop(client_peer);
-    
+
     // Check that we don't immediately crash. Bidirectional relay stays open for the server -> client flush.
     // Eventually dropping the server cleanly closes the task.
     drop(server_peer);
-    timeout(Duration::from_secs(1), relay_task).await.unwrap().unwrap().unwrap();
+    timeout(Duration::from_secs(1), relay_task)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
 }
 
 #[tokio::test]
@@ -675,7 +708,16 @@ async fn relay_bidirectional_zero_length_noise_fuzzing() {
     let (server_reader, server_writer) = tokio::io::split(relay_server);
 
     let relay_task = tokio::spawn(relay_bidirectional(
-        client_reader, client_writer, server_reader, server_writer, 1024, 1024, "fuzz", stats, None, Arc::new(BufferPool::new()),
+        client_reader,
+        client_writer,
+        server_reader,
+        server_writer,
+        1024,
+        1024,
+        "fuzz",
+        stats,
+        None,
+        Arc::new(BufferPool::new()),
     ));
 
     // Flood with zero-length payloads (edge cases in stream framing logic sometimes loop)
@@ -684,45 +726,62 @@ async fn relay_bidirectional_zero_length_noise_fuzzing() {
     }
     client_peer.write_all(&[1, 2, 3]).await.unwrap();
     client_peer.flush().await.unwrap();
-    
+
     let mut buf = [0u8; 3];
     server_peer.read_exact(&mut buf).await.unwrap();
     assert_eq!(&buf, &[1, 2, 3]);
-    
+
     drop(client_peer);
     drop(server_peer);
-    timeout(Duration::from_secs(1), relay_task).await.unwrap().unwrap().unwrap();
+    timeout(Duration::from_secs(1), relay_task)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
 }
 
 #[tokio::test]
 async fn relay_bidirectional_asymmetric_backpressure() {
     let stats = Arc::new(Stats::new());
     // Give the client stream an extremely narrow throughput limit explicitly
-    let (client_peer, relay_client) = duplex(1024); 
+    let (client_peer, relay_client) = duplex(1024);
     let (relay_server, mut server_peer) = duplex(4096);
     let (client_reader, client_writer) = tokio::io::split(relay_client);
     let (server_reader, server_writer) = tokio::io::split(relay_server);
 
     let relay_task = tokio::spawn(relay_bidirectional(
-        client_reader, client_writer, server_reader, server_writer, 1024, 1024, "slowloris", stats, None, Arc::new(BufferPool::new()),
+        client_reader,
+        client_writer,
+        server_reader,
+        server_writer,
+        1024,
+        1024,
+        "slowloris",
+        stats,
+        None,
+        Arc::new(BufferPool::new()),
     ));
 
     let payload = vec![0xba; 65536]; // 64k payload
-    
+
     // Server attempts to shove 64KB into a relay whose client pipe only holds 1KB!
-    let write_res = tokio::time::timeout(Duration::from_millis(50), server_peer.write_all(&payload)).await;
-    
+    let write_res =
+        tokio::time::timeout(Duration::from_millis(50), server_peer.write_all(&payload)).await;
+
     assert!(
-        write_res.is_err(), 
+        write_res.is_err(),
         "Relay backpressure MUST halt the server writer from unbounded buffering when client stream is full!"
     );
-    
+
     drop(client_peer);
     drop(server_peer);
-    
-    let completion = timeout(Duration::from_secs(1), relay_task).await.unwrap().unwrap();
+
+    let completion = timeout(Duration::from_secs(1), relay_task)
+        .await
+        .unwrap()
+        .unwrap();
     assert!(
-        completion.is_ok() || completion.is_err(), 
+        completion.is_ok() || completion.is_err(),
         "Task must unwind reliably (either Ok or BrokenPipe Err) when dropped despite active backpressure locks"
     );
 }
@@ -739,27 +798,43 @@ async fn relay_bidirectional_light_fuzzing_temporal_jitter() {
     let (server_reader, server_writer) = tokio::io::split(relay_server);
 
     let mut relay_task = tokio::spawn(relay_bidirectional(
-        client_reader, client_writer, server_reader, server_writer, 1024, 1024, "fuzz-user", stats, None, Arc::new(BufferPool::new()),
+        client_reader,
+        client_writer,
+        server_reader,
+        server_writer,
+        1024,
+        1024,
+        "fuzz-user",
+        stats,
+        None,
+        Arc::new(BufferPool::new()),
     ));
 
     let mut rng = StdRng::seed_from_u64(0xDEADBEEF);
-    
+
     for _ in 0..10 {
         // Vary timing significantly up to 1600 seconds (limit is 1800s)
-        let jitter = rng.random_range(100..1600); 
+        let jitter = rng.random_range(100..1600);
         tokio::time::sleep(Duration::from_secs(jitter)).await;
-        
+
         client_peer.write_all(&[0x11]).await.unwrap();
         client_peer.flush().await.unwrap();
-        
+
         // Ensure task has not died
         let res = timeout(Duration::from_millis(10), &mut relay_task).await;
-        assert!(res.is_err(), "Relay must remain open indefinitely under light temporal fuzzing with active jitter pulses");
+        assert!(
+            res.is_err(),
+            "Relay must remain open indefinitely under light temporal fuzzing with active jitter pulses"
+        );
     }
-    
+
     drop(client_peer);
     drop(server_peer);
-    timeout(Duration::from_secs(1), relay_task).await.unwrap().unwrap().unwrap();
+    timeout(Duration::from_secs(1), relay_task)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
 }
 
 struct FaultyReader {
@@ -1038,11 +1113,14 @@ async fn stress_same_user_quota_parallel_relays_never_exceed_limit() {
             server_peer_b.write_all(&[0x04]),
         );
 
-        let _ = timeout(Duration::from_millis(50), poll_fn(|cx| {
-            let mut one = [0u8; 1];
-            let _ = Pin::new(&mut client_peer_a).poll_read(cx, &mut ReadBuf::new(&mut one));
-            Poll::Ready(())
-        }))
+        let _ = timeout(
+            Duration::from_millis(50),
+            poll_fn(|cx| {
+                let mut one = [0u8; 1];
+                let _ = Pin::new(&mut client_peer_a).poll_read(cx, &mut ReadBuf::new(&mut one));
+                Poll::Ready(())
+            }),
+        )
         .await;
 
         drop(client_peer_a);
@@ -1063,7 +1141,10 @@ async fn stress_same_user_quota_parallel_relays_never_exceed_limit() {
 impl FaultyReader {
     fn permission_denied_with_message(message: impl Into<String>) -> Self {
         Self {
-            error_once: Some(io::Error::new(io::ErrorKind::PermissionDenied, message.into())),
+            error_once: Some(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                message.into(),
+            )),
         }
     }
 }
@@ -1179,14 +1260,20 @@ async fn relay_half_close_keeps_reverse_direction_progressing() {
         Arc::new(BufferPool::new()),
     ));
 
-    sp_writer.write_all(&[0x10, 0x20, 0x30, 0x40]).await.unwrap();
+    sp_writer
+        .write_all(&[0x10, 0x20, 0x30, 0x40])
+        .await
+        .unwrap();
     sp_writer.shutdown().await.unwrap();
 
     let mut inbound = [0u8; 4];
     cp_reader.read_exact(&mut inbound).await.unwrap();
     assert_eq!(inbound, [0x10, 0x20, 0x30, 0x40]);
 
-    cp_writer.write_all(&[0xaa, 0xbb, 0xcc, 0xdd]).await.unwrap();
+    cp_writer
+        .write_all(&[0xaa, 0xbb, 0xcc, 0xdd])
+        .await
+        .unwrap();
     let mut outbound = [0u8; 4];
     sp_reader.read_exact(&mut outbound).await.unwrap();
     assert_eq!(outbound, [0xaa, 0xbb, 0xcc, 0xdd]);

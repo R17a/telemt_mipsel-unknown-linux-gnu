@@ -5,7 +5,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::task::{Context, Waker};
-use tokio::io::{ReadBuf, AsyncWriteExt};
+use tokio::io::{AsyncWriteExt, ReadBuf};
 use tokio::time::{Duration, timeout};
 
 #[derive(Default)]
@@ -83,7 +83,10 @@ async fn positive_contended_writer_emits_deferred_wake_for_liveness() {
 
     drop(held_guard);
     let ready = Pin::new(&mut io).poll_write(&mut cx, &[0xA2]);
-    assert!(ready.is_ready(), "writer must progress after contention release");
+    assert!(
+        ready.is_ready(),
+        "writer must progress after contention release"
+    );
 }
 
 #[tokio::test]
@@ -117,7 +120,10 @@ async fn adversarial_blackhat_writer_contention_does_not_create_waker_storm() {
 
     for _ in 0..512 {
         let poll = Pin::new(&mut io).poll_write(&mut cx, &[0xBE]);
-        assert!(poll.is_pending(), "writer must stay pending while lock is held");
+        assert!(
+            poll.is_pending(),
+            "writer must stay pending while lock is held"
+        );
         tokio::task::yield_now().await;
     }
 

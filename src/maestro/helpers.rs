@@ -1,5 +1,5 @@
-use std::time::Duration;
 use std::path::PathBuf;
+use std::time::Duration;
 
 use tokio::sync::watch;
 use tracing::{debug, error, info, warn};
@@ -10,7 +10,10 @@ use crate::transport::middle_proxy::{
     ProxyConfigData, fetch_proxy_config_with_raw, load_proxy_config_cache, save_proxy_config_cache,
 };
 
-pub(crate) fn resolve_runtime_config_path(config_path_cli: &str, startup_cwd: &std::path::Path) -> PathBuf {
+pub(crate) fn resolve_runtime_config_path(
+    config_path_cli: &str,
+    startup_cwd: &std::path::Path,
+) -> PathBuf {
     let raw = PathBuf::from(config_path_cli);
     let absolute = if raw.is_absolute() {
         raw
@@ -50,7 +53,9 @@ pub(crate) fn parse_cli() -> (String, Option<PathBuf>, bool, Option<String>) {
                 }
             }
             s if s.starts_with("--data-path=") => {
-                data_path = Some(PathBuf::from(s.trim_start_matches("--data-path=").to_string()));
+                data_path = Some(PathBuf::from(
+                    s.trim_start_matches("--data-path=").to_string(),
+                ));
             }
             "--silent" | "-s" => {
                 silent = true;
@@ -68,7 +73,9 @@ pub(crate) fn parse_cli() -> (String, Option<PathBuf>, bool, Option<String>) {
                 eprintln!("Usage: telemt [config.toml] [OPTIONS]");
                 eprintln!();
                 eprintln!("Options:");
-                eprintln!("  --data-path <DIR>       Set data directory (absolute path; overrides config value)");
+                eprintln!(
+                    "  --data-path <DIR>       Set data directory (absolute path; overrides config value)"
+                );
                 eprintln!("  --silent, -s            Suppress info logs");
                 eprintln!("  --log-level <LEVEL>     debug|verbose|normal|silent");
                 eprintln!("  --help, -h              Show this help");
@@ -146,7 +153,12 @@ mod tests {
 
 pub(crate) fn print_proxy_links(host: &str, port: u16, config: &ProxyConfig) {
     info!(target: "telemt::links", "--- Proxy Links ({}) ---", host);
-    for user_name in config.general.links.show.resolve_users(&config.access.users) {
+    for user_name in config
+        .general
+        .links
+        .show
+        .resolve_users(&config.access.users)
+    {
         if let Some(secret) = config.access.users.get(user_name) {
             info!(target: "telemt::links", "User: {}", user_name);
             if config.general.modes.classic {
@@ -287,7 +299,10 @@ pub(crate) async fn load_startup_proxy_config_snapshot(
                     return Some(cfg);
                 }
 
-                warn!(snapshot = label, url, "Startup proxy-config is empty; trying disk cache");
+                warn!(
+                    snapshot = label,
+                    url, "Startup proxy-config is empty; trying disk cache"
+                );
                 if let Some(path) = cache_path {
                     match load_proxy_config_cache(path).await {
                         Ok(cached) if !cached.map.is_empty() => {
@@ -302,8 +317,7 @@ pub(crate) async fn load_startup_proxy_config_snapshot(
                         Ok(_) => {
                             warn!(
                                 snapshot = label,
-                                path,
-                                "Startup proxy-config cache is empty; ignoring cache file"
+                                path, "Startup proxy-config cache is empty; ignoring cache file"
                             );
                         }
                         Err(cache_err) => {
@@ -347,8 +361,7 @@ pub(crate) async fn load_startup_proxy_config_snapshot(
                         Ok(_) => {
                             warn!(
                                 snapshot = label,
-                                path,
-                                "Startup proxy-config cache is empty; ignoring cache file"
+                                path, "Startup proxy-config cache is empty; ignoring cache file"
                             );
                         }
                         Err(cache_err) => {

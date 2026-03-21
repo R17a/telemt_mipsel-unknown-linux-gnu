@@ -29,11 +29,13 @@ server_hello_delay_max_ms = 1000
 "#,
     );
 
-    let err = ProxyConfig::load(&path)
-        .expect_err("delay equal to handshake timeout must be rejected");
+    let err =
+        ProxyConfig::load(&path).expect_err("delay equal to handshake timeout must be rejected");
     let msg = err.to_string();
     assert!(
-        msg.contains("censorship.server_hello_delay_max_ms must be < timeouts.client_handshake * 1000"),
+        msg.contains(
+            "censorship.server_hello_delay_max_ms must be < timeouts.client_handshake * 1000"
+        ),
         "error must explain delay<timeout invariant, got: {msg}"
     );
 
@@ -52,11 +54,13 @@ server_hello_delay_max_ms = 1500
 "#,
     );
 
-    let err = ProxyConfig::load(&path)
-        .expect_err("delay larger than handshake timeout must be rejected");
+    let err =
+        ProxyConfig::load(&path).expect_err("delay larger than handshake timeout must be rejected");
     let msg = err.to_string();
     assert!(
-        msg.contains("censorship.server_hello_delay_max_ms must be < timeouts.client_handshake * 1000"),
+        msg.contains(
+            "censorship.server_hello_delay_max_ms must be < timeouts.client_handshake * 1000"
+        ),
         "error must explain delay<timeout invariant, got: {msg}"
     );
 
@@ -75,8 +79,8 @@ server_hello_delay_max_ms = 999
 "#,
     );
 
-    let cfg = ProxyConfig::load(&path)
-        .expect("delay below handshake timeout budget must be accepted");
+    let cfg =
+        ProxyConfig::load(&path).expect("delay below handshake timeout budget must be accepted");
     assert_eq!(cfg.timeouts.client_handshake, 1);
     assert_eq!(cfg.censorship.server_hello_delay_max_ms, 999);
 

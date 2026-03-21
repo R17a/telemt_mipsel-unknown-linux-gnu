@@ -6,8 +6,8 @@ pub mod direct_relay;
 pub mod handshake;
 pub mod masking;
 pub mod middle_relay;
-pub mod route_mode;
 pub mod relay;
+pub mod route_mode;
 pub mod session_eviction;
 
 pub use client::ClientHandler;

@@ -3,7 +3,7 @@ use crate::config::{UpstreamConfig, UpstreamType};
 use crate::crypto::sha256_hmac;
 use crate::protocol::constants::{HANDSHAKE_LEN, TLS_RECORD_APPLICATION, TLS_VERSION};
 use crate::protocol::tls;
-use tokio::io::{duplex, AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, duplex};
 use tokio::net::TcpListener;
 use tokio::time::{Duration, Instant};
 
@@ -70,7 +70,10 @@ fn build_harness(secret_hex: &str, mask_port: u16) -> Harness {
 }
 
 fn make_valid_tls_client_hello(secret: &[u8], timestamp: u32, tls_len: usize, fill: u8) -> Vec<u8> {
-    assert!(tls_len <= u16::MAX as usize, "TLS length must fit into record header");
+    assert!(
+        tls_len <= u16::MAX as usize,
+        "TLS length must fit into record header"
+    );
 
     let total_len = 5 + tls_len;
     let mut handshake = vec![fill; total_len];
@@ -158,11 +161,17 @@ async fn run_tls_success_mtproto_fail_capture(
     client_side.write_all(&client_hello).await.unwrap();
 
     let mut tls_response_head = [0u8; 5];
-    client_side.read_exact(&mut tls_response_head).await.unwrap();
+    client_side
+        .read_exact(&mut tls_response_head)
+        .await
+        .unwrap();
     assert_eq!(tls_response_head[0], 0x16);
     read_tls_record_body(&mut client_side, tls_response_head).await;
 
-    client_side.write_all(&invalid_mtproto_record).await.unwrap();
+    client_side
+        .write_all(&invalid_mtproto_record)
+        .await
+        .unwrap();
     for record in trailing_records {
         client_side.write_all(&record).await.unwrap();
     }
@@ -330,7 +339,10 @@ async fn replayed_tls_hello_gets_no_serverhello_and_is_masked() {
                 client_side.read_exact(&mut head).await.unwrap();
                 assert_eq!(head[0], 0x16);
                 read_tls_record_body(&mut client_side, head).await;
-                client_side.write_all(&invalid_mtproto_record).await.unwrap();
+                client_side
+                    .write_all(&invalid_mtproto_record)
+                    .await
+                    .unwrap();
                 client_side.write_all(&first_tail).await.unwrap();
             } else {
                 let mut one = [0u8; 1];
@@ -402,7 +414,10 @@ async fn connects_bad_increments_once_per_invalid_mtproto() {
     let mut head = [0u8; 5];
     client_side.read_exact(&mut head).await.unwrap();
     read_tls_record_body(&mut client_side, head).await;
-    client_side.write_all(&invalid_mtproto_record).await.unwrap();
+    client_side
+        .write_all(&invalid_mtproto_record)
+        .await
+        .unwrap();
     client_side.write_all(&tail).await.unwrap();
 
     tokio::time::timeout(Duration::from_secs(3), accept_task)
@@ -625,7 +640,8 @@ async fn concurrent_tls_mtproto_fail_sessions_are_isolated() {
     for idx in 0..sessions {
         let secret_hex = "c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4c4";
         let harness = build_harness(secret_hex, backend_addr.port());
-        let hello = make_valid_tls_client_hello(&[0xC4; 16], 20 + idx as u32, 600, 0x40 + idx as u8);
+        let hello =
+            make_valid_tls_client_hello(&[0xC4; 16], 20 + idx as u32, 600, 0x40 + idx as u8);
         let invalid_mtproto = wrap_tls_application_data(&vec![0u8; HANDSHAKE_LEN]);
         let trailing = wrap_tls_application_data(&vec![idx as u8; 32 + idx]);
         let peer: SocketAddr = format!("198.51.100.217:{}", 56100 + idx as u16)
@@ -685,17 +701,67 @@ macro_rules! tail_length_case {
                 *b = (i as u8).wrapping_mul(17).wrapping_add(5);
             }
             let record = wrap_tls_application_data(&payload);
-            let got = run_tls_success_mtproto_fail_capture($hex, $secret, $ts, vec![record.clone()]).await;
+            let got =
+                run_tls_success_mtproto_fail_capture($hex, $secret, $ts, vec![record.clone()])
+                    .await;
             assert_eq!(got, record);
         }
     };
 }
 
-tail_length_case!(tail_len_1_preserved, "d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1", [0xD1; 16], 30, 1);
-tail_length_case!(tail_len_2_preserved, "d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2", [0xD2; 16], 31, 2);
-tail_length_case!(tail_len_3_preserved, "d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3", [0xD3; 16], 32, 3);
-tail_length_case!(tail_len_7_preserved, "d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4", [0xD4; 16], 33, 7);
-tail_length_case!(tail_len_31_preserved, "d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5", [0xD5; 16], 34, 31);
-tail_length_case!(tail_len_127_preserved, "d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6", [0xD6; 16], 35, 127);
-tail_length_case!(tail_len_511_preserved, "d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7", [0xD7; 16], 36, 511);
-tail_length_case!(tail_len_1023_preserved, "d8d8d8d8d8d8d8d8d8d8d8d8d8d8d8d8", [0xD8; 16], 37, 1023);
+tail_length_case!(
+    tail_len_1_preserved,
+    "d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1",
+    [0xD1; 16],
+    30,
+    1
+);
+tail_length_case!(
+    tail_len_2_preserved,
+    "d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2",
+    [0xD2; 16],
+    31,
+    2
+);
+tail_length_case!(
+    tail_len_3_preserved,
+    "d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3",
+    [0xD3; 16],
+    32,
+    3
+);
+tail_length_case!(
+    tail_len_7_preserved,
+    "d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4",
+    [0xD4; 16],
+    33,
+    7
+);
+tail_length_case!(
+    tail_len_31_preserved,
+    "d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5",
+    [0xD5; 16],
+    34,
+    31
+);
+tail_length_case!(
+    tail_len_127_preserved,
+    "d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6",
+    [0xD6; 16],
+    35,
+    127
+);
+tail_length_case!(
+    tail_len_511_preserved,
+    "d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7",
+    [0xD7; 16],
+    36,
+    511
+);
+tail_length_case!(
+    tail_len_1023_preserved,
+    "d8d8d8d8d8d8d8d8d8d8d8d8d8d8d8d8",
+    [0xD8; 16],
+    37,
+    1023
+);

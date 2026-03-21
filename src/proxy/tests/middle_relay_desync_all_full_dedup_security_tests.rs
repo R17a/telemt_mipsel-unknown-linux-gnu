@@ -47,7 +47,11 @@ fn desync_all_full_bypass_keeps_existing_dedup_entries_unchanged() {
         );
     }
 
-    assert_eq!(dedup.len(), 2, "bypass path must not mutate dedup cardinality");
+    assert_eq!(
+        dedup.len(),
+        2,
+        "bypass path must not mutate dedup cardinality"
+    );
     assert_eq!(
         *dedup
             .get(&0xAAAABBBBCCCCDDDD)
@@ -73,7 +77,11 @@ fn edge_all_full_burst_does_not_poison_later_false_path_tracking() {
 
     let now = Instant::now();
     for i in 0..8192u64 {
-        assert!(should_emit_full_desync(0xABCD_0000_0000_0000 ^ i, true, now));
+        assert!(should_emit_full_desync(
+            0xABCD_0000_0000_0000 ^ i,
+            true,
+            now
+        ));
     }
 
     let tracked_key = 0xDEAD_BEEF_0000_0001u64;
@@ -175,5 +183,9 @@ fn stress_parallel_all_full_storm_does_not_grow_or_mutate_cache() {
     }
 
     assert_eq!(emits.load(Ordering::Relaxed), 16 * 4096);
-    assert_eq!(dedup.len(), before_len, "parallel all_full storm must not mutate cache len");
+    assert_eq!(
+        dedup.len(),
+        before_len,
+        "parallel all_full storm must not mutate cache len"
+    );
 }

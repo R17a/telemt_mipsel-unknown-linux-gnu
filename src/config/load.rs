@@ -399,9 +399,7 @@ impl ProxyConfig {
             ));
         }
 
-        if config.censorship.mask_shape_above_cap_blur
-            && !config.censorship.mask_shape_hardening
-        {
+        if config.censorship.mask_shape_above_cap_blur && !config.censorship.mask_shape_hardening {
             return Err(ProxyError::Config(
                 "censorship.mask_shape_above_cap_blur requires censorship.mask_shape_hardening = true"
                     .to_string(),
@@ -419,8 +417,7 @@ impl ProxyConfig {
 
         if config.censorship.mask_shape_above_cap_blur_max_bytes > 1_048_576 {
             return Err(ProxyError::Config(
-                "censorship.mask_shape_above_cap_blur_max_bytes must be <= 1048576"
-                    .to_string(),
+                "censorship.mask_shape_above_cap_blur_max_bytes must be <= 1048576".to_string(),
             ));
         }
 
@@ -444,8 +441,7 @@ impl ProxyConfig {
 
         if config.censorship.mask_timing_normalization_ceiling_ms > 60_000 {
             return Err(ProxyError::Config(
-                "censorship.mask_timing_normalization_ceiling_ms must be <= 60000"
-                    .to_string(),
+                "censorship.mask_timing_normalization_ceiling_ms must be <= 60000".to_string(),
             ));
         }
 
@@ -461,8 +457,7 @@ impl ProxyConfig {
             ));
         }
 
-        if config.timeouts.relay_client_idle_hard_secs
-            < config.timeouts.relay_client_idle_soft_secs
+        if config.timeouts.relay_client_idle_hard_secs < config.timeouts.relay_client_idle_soft_secs
         {
             return Err(ProxyError::Config(
                 "timeouts.relay_client_idle_hard_secs must be >= timeouts.relay_client_idle_soft_secs"
@@ -470,7 +465,9 @@ impl ProxyConfig {
             ));
         }
 
-        if config.timeouts.relay_idle_grace_after_downstream_activity_secs
+        if config
+            .timeouts
+            .relay_idle_grace_after_downstream_activity_secs
             > config.timeouts.relay_client_idle_hard_secs
         {
             return Err(ProxyError::Config(
@@ -767,7 +764,8 @@ impl ProxyConfig {
         }
         if config.general.me_route_backpressure_base_timeout_ms > 5000 {
             return Err(ProxyError::Config(
-                "general.me_route_backpressure_base_timeout_ms must be within [1, 5000]".to_string(),
+                "general.me_route_backpressure_base_timeout_ms must be within [1, 5000]"
+                    .to_string(),
             ));
         }
 
@@ -780,7 +778,8 @@ impl ProxyConfig {
         }
         if config.general.me_route_backpressure_high_timeout_ms > 5000 {
             return Err(ProxyError::Config(
-                "general.me_route_backpressure_high_timeout_ms must be within [1, 5000]".to_string(),
+                "general.me_route_backpressure_high_timeout_ms must be within [1, 5000]"
+                    .to_string(),
             ));
         }
 
@@ -1828,7 +1827,9 @@ mod tests {
         let path = dir.join("telemt_me_route_backpressure_base_timeout_ms_out_of_range_test.toml");
         std::fs::write(&path, toml).unwrap();
         let err = ProxyConfig::load(&path).unwrap_err().to_string();
-        assert!(err.contains("general.me_route_backpressure_base_timeout_ms must be within [1, 5000]"));
+        assert!(
+            err.contains("general.me_route_backpressure_base_timeout_ms must be within [1, 5000]")
+        );
         let _ = std::fs::remove_file(path);
     }
 
@@ -1849,7 +1850,9 @@ mod tests {
         let path = dir.join("telemt_me_route_backpressure_high_timeout_ms_out_of_range_test.toml");
         std::fs::write(&path, toml).unwrap();
         let err = ProxyConfig::load(&path).unwrap_err().to_string();
-        assert!(err.contains("general.me_route_backpressure_high_timeout_ms must be within [1, 5000]"));
+        assert!(
+            err.contains("general.me_route_backpressure_high_timeout_ms must be within [1, 5000]")
+        );
         let _ = std::fs::remove_file(path);
     }
 

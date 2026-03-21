@@ -10,9 +10,9 @@ use tokio_util::sync::CancellationToken;
 
 use super::codec::WriterCommand;
 use super::health::{health_drain_close_budget, reap_draining_writers};
+use super::me_health_monitor;
 use super::pool::{MePool, MeWriter, WriterContour};
 use super::registry::ConnMeta;
-use super::me_health_monitor;
 use crate::config::{GeneralConfig, MeRouteNoWriterMode, MeSocksKdfPolicy, MeWriterPickMode};
 use crate::crypto::SecureRandom;
 use crate::network::probe::NetworkDecision;
@@ -241,14 +241,7 @@ async fn reap_draining_writers_respects_threshold_across_multiple_overflow_cycle
     let now_epoch_secs = MePool::now_epoch_secs();
 
     for writer_id in 1..=60u64 {
-        insert_draining_writer(
-            &pool,
-            writer_id,
-            now_epoch_secs.saturating_sub(20),
-            1,
-            0,
-        )
-        .await;
+        insert_draining_writer(&pool, writer_id, now_epoch_secs.saturating_sub(20), 1, 0).await;
     }
 
     let mut warn_next_allowed = HashMap::new();
@@ -267,17 +260,12 @@ async fn reap_draining_writers_respects_threshold_across_multiple_overflow_cycle
 async fn reap_draining_writers_handles_large_empty_writer_population() {
     let (pool, _rng) = make_pool(128, 1, 1).await;
     let now_epoch_secs = MePool::now_epoch_secs();
-    let total = health_drain_close_budget().saturating_mul(3).saturating_add(27);
+    let total = health_drain_close_budget()
+        .saturating_mul(3)
+        .saturating_add(27);
 
     for writer_id in 1..=total as u64 {
-        insert_draining_writer(
-            &pool,
-            writer_id,
-            now_epoch_secs.saturating_sub(120),
-            0,
-            0,
-        )
-        .await;
+        insert_draining_writer(&pool, writer_id, now_epoch_secs.saturating_sub(120), 0, 0).await;
     }
 
     let mut warn_next_allowed = HashMap::new();
@@ -295,7 +283,9 @@ async fn reap_draining_writers_handles_large_empty_writer_population() {
 async fn reap_draining_writers_processes_mass_deadline_expiry_without_unbounded_growth() {
     let (pool, _rng) = make_pool(128, 1, 1).await;
     let now_epoch_secs = MePool::now_epoch_secs();
-    let total = health_drain_close_budget().saturating_mul(4).saturating_add(31);
+    let total = health_drain_close_budget()
+        .saturating_mul(4)
+        .saturating_add(31);
 
     for writer_id in 1..=total as u64 {
         insert_draining_writer(
@@ -580,14 +570,7 @@ async fn reap_draining_writers_repeated_draining_flips_never_leave_stale_warn_st
     let now_epoch_secs = MePool::now_epoch_secs();
 
     for writer_id in 1..=24u64 {
-        insert_draining_writer(
-            &pool,
-            writer_id,
-            now_epoch_secs.saturating_sub(240),
-            1,
-            0,
-        )
-        .await;
+        insert_draining_writer(&pool, writer_id, now_epoch_secs.saturating_sub(240), 1, 0).await;
     }
 
     let mut warn_next_allowed = HashMap::new();

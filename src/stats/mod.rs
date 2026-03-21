@@ -5,20 +5,20 @@
 pub mod beobachten;
 pub mod telemetry;
 
-use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU64, Ordering};
-use std::sync::Arc;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use dashmap::DashMap;
-use parking_lot::Mutex;
 use lru::LruCache;
-use std::num::NonZeroUsize;
-use std::hash::{Hash, Hasher};
-use std::collections::hash_map::DefaultHasher;
+use parking_lot::Mutex;
 use std::collections::VecDeque;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+use std::num::NonZeroUsize;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU64, Ordering};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tracing::debug;
 
-use crate::config::{MeTelemetryLevel, MeWriterPickMode};
 use self::telemetry::TelemetryPolicy;
+use crate::config::{MeTelemetryLevel, MeWriterPickMode};
 
 #[derive(Clone, Copy)]
 enum RouteConnectionGauge {
@@ -264,8 +264,7 @@ impl Stats {
         let last_cleanup_epoch_secs = self
             .user_stats_last_cleanup_epoch_secs
             .load(Ordering::Relaxed);
-        if now_epoch_secs.saturating_sub(last_cleanup_epoch_secs)
-            < USER_STATS_CLEANUP_INTERVAL_SECS
+        if now_epoch_secs.saturating_sub(last_cleanup_epoch_secs) < USER_STATS_CLEANUP_INTERVAL_SECS
         {
             return;
         }
@@ -307,7 +306,7 @@ impl Stats {
             me_level: self.telemetry_me_level(),
         }
     }
-    
+
     pub fn increment_connects_all(&self) {
         if self.telemetry_core_enabled() {
             self.connects_all.fetch_add(1, Ordering::Relaxed);
@@ -319,7 +318,8 @@ impl Stats {
         }
     }
     pub fn increment_current_connections_direct(&self) {
-        self.current_connections_direct.fetch_add(1, Ordering::Relaxed);
+        self.current_connections_direct
+            .fetch_add(1, Ordering::Relaxed);
     }
     pub fn decrement_current_connections_direct(&self) {
         Self::decrement_atomic_saturating(&self.current_connections_direct);
@@ -460,7 +460,8 @@ impl Stats {
     }
     pub fn increment_me_keepalive_timeout_by(&self, value: u64) {
         if self.telemetry_me_allows_normal() {
-            self.me_keepalive_timeout.fetch_add(value, Ordering::Relaxed);
+            self.me_keepalive_timeout
+                .fetch_add(value, Ordering::Relaxed);
         }
     }
     pub fn increment_me_rpc_proxy_req_signal_sent_total(&self) {
@@ -505,7 +506,8 @@ impl Stats {
     }
     pub fn increment_me_handshake_reject_total(&self) {
         if self.telemetry_me_allows_normal() {
-            self.me_handshake_reject_total.fetch_add(1, Ordering::Relaxed);
+            self.me_handshake_reject_total
+                .fetch_add(1, Ordering::Relaxed);
         }
     }
     pub fn increment_me_handshake_error_code(&self, code: i32) {
@@ -570,22 +572,26 @@ impl Stats {
     }
     pub fn increment_me_route_drop_channel_closed(&self) {
         if self.telemetry_me_allows_normal() {
-            self.me_route_drop_channel_closed.fetch_add(1, Ordering::Relaxed);
+            self.me_route_drop_channel_closed
+                .fetch_add(1, Ordering::Relaxed);
         }
     }
     pub fn increment_me_route_drop_queue_full(&self) {
         if self.telemetry_me_allows_normal() {
-            self.me_route_drop_queue_full.fetch_add(1, Ordering::Relaxed);
+            self.me_route_drop_queue_full
+                .fetch_add(1, Ordering::Relaxed);
         }
     }
     pub fn increment_me_route_drop_queue_full_base(&self) {
         if self.telemetry_me_allows_normal() {
-            self.me_route_drop_queue_full_base.fetch_add(1, Ordering::Relaxed);
+            self.me_route_drop_queue_full_base
+                .fetch_add(1, Ordering::Relaxed);
         }
     }
     pub fn increment_me_route_drop_queue_full_high(&self) {
         if self.telemetry_me_allows_normal() {
-            self.me_route_drop_queue_full_high.fetch_add(1, Ordering::Relaxed);
+            self.me_route_drop_queue_full_high
+                .fetch_add(1, Ordering::Relaxed);
         }
     }
     pub fn increment_me_writer_pick_success_try_total(&self, mode: MeWriterPickMode) {
@@ -677,12 +683,14 @@ impl Stats {
     }
     pub fn increment_me_socks_kdf_strict_reject(&self) {
         if self.telemetry_me_allows_normal() {
-            self.me_socks_kdf_strict_reject.fetch_add(1, Ordering::Relaxed);
+            self.me_socks_kdf_strict_reject
+                .fetch_add(1, Ordering::Relaxed);
         }
     }
     pub fn increment_me_socks_kdf_compat_fallback(&self) {
         if self.telemetry_me_allows_debug() {
-            self.me_socks_kdf_compat_fallback.fetch_add(1, Ordering::Relaxed);
+            self.me_socks_kdf_compat_fallback
+                .fetch_add(1, Ordering::Relaxed);
         }
     }
     pub fn increment_secure_padding_invalid(&self) {
@@ -714,13 +722,16 @@ impl Stats {
                 self.desync_frames_bucket_0.fetch_add(1, Ordering::Relaxed);
             }
             1..=2 => {
-                self.desync_frames_bucket_1_2.fetch_add(1, Ordering::Relaxed);
+                self.desync_frames_bucket_1_2
+                    .fetch_add(1, Ordering::Relaxed);
             }
             3..=10 => {
-                self.desync_frames_bucket_3_10.fetch_add(1, Ordering::Relaxed);
+                self.desync_frames_bucket_3_10
+                    .fetch_add(1, Ordering::Relaxed);
             }
             _ => {
-                self.desync_frames_bucket_gt_10.fetch_add(1, Ordering::Relaxed);
+                self.desync_frames_bucket_gt_10
+                    .fetch_add(1, Ordering::Relaxed);
             }
         }
     }
@@ -771,17 +782,20 @@ impl Stats {
     }
     pub fn increment_me_writer_removed_unexpected_total(&self) {
         if self.telemetry_me_allows_normal() {
-            self.me_writer_removed_unexpected_total.fetch_add(1, Ordering::Relaxed);
+            self.me_writer_removed_unexpected_total
+                .fetch_add(1, Ordering::Relaxed);
         }
     }
     pub fn increment_me_refill_triggered_total(&self) {
         if self.telemetry_me_allows_debug() {
-            self.me_refill_triggered_total.fetch_add(1, Ordering::Relaxed);
+            self.me_refill_triggered_total
+                .fetch_add(1, Ordering::Relaxed);
         }
     }
     pub fn increment_me_refill_skipped_inflight_total(&self) {
         if self.telemetry_me_allows_debug() {
-            self.me_refill_skipped_inflight_total.fetch_add(1, Ordering::Relaxed);
+            self.me_refill_skipped_inflight_total
+                .fetch_add(1, Ordering::Relaxed);
         }
     }
     pub fn increment_me_refill_failed_total(&self) {
@@ -803,7 +817,8 @@ impl Stats {
     }
     pub fn increment_me_no_writer_failfast_total(&self) {
         if self.telemetry_me_allows_normal() {
-            self.me_no_writer_failfast_total.fetch_add(1, Ordering::Relaxed);
+            self.me_no_writer_failfast_total
+                .fetch_add(1, Ordering::Relaxed);
         }
     }
     pub fn increment_me_async_recovery_trigger_total(&self) {
@@ -814,7 +829,8 @@ impl Stats {
     }
     pub fn increment_me_inline_recovery_total(&self) {
         if self.telemetry_me_allows_normal() {
-            self.me_inline_recovery_total.fetch_add(1, Ordering::Relaxed);
+            self.me_inline_recovery_total
+                .fetch_add(1, Ordering::Relaxed);
         }
     }
     pub fn increment_ip_reservation_rollback_tcp_limit_total(&self) {
@@ -986,12 +1002,14 @@ impl Stats {
     }
     pub fn increment_me_floor_cap_block_total(&self) {
         if self.telemetry_me_allows_normal() {
-            self.me_floor_cap_block_total.fetch_add(1, Ordering::Relaxed);
+            self.me_floor_cap_block_total
+                .fetch_add(1, Ordering::Relaxed);
         }
     }
     pub fn increment_me_floor_swap_idle_total(&self) {
         if self.telemetry_me_allows_normal() {
-            self.me_floor_swap_idle_total.fetch_add(1, Ordering::Relaxed);
+            self.me_floor_swap_idle_total
+                .fetch_add(1, Ordering::Relaxed);
         }
     }
     pub fn increment_me_floor_swap_idle_failed_total(&self) {
@@ -1000,8 +1018,12 @@ impl Stats {
                 .fetch_add(1, Ordering::Relaxed);
         }
     }
-    pub fn get_connects_all(&self) -> u64 { self.connects_all.load(Ordering::Relaxed) }
-    pub fn get_connects_bad(&self) -> u64 { self.connects_bad.load(Ordering::Relaxed) }
+    pub fn get_connects_all(&self) -> u64 {
+        self.connects_all.load(Ordering::Relaxed)
+    }
+    pub fn get_connects_bad(&self) -> u64 {
+        self.connects_bad.load(Ordering::Relaxed)
+    }
     pub fn get_current_connections_direct(&self) -> u64 {
         self.current_connections_direct.load(Ordering::Relaxed)
     }
@@ -1012,10 +1034,18 @@ impl Stats {
         self.get_current_connections_direct()
             .saturating_add(self.get_current_connections_me())
     }
-    pub fn get_me_keepalive_sent(&self) -> u64 { self.me_keepalive_sent.load(Ordering::Relaxed) }
-    pub fn get_me_keepalive_failed(&self) -> u64 { self.me_keepalive_failed.load(Ordering::Relaxed) }
-    pub fn get_me_keepalive_pong(&self) -> u64 { self.me_keepalive_pong.load(Ordering::Relaxed) }
-    pub fn get_me_keepalive_timeout(&self) -> u64 { self.me_keepalive_timeout.load(Ordering::Relaxed) }
+    pub fn get_me_keepalive_sent(&self) -> u64 {
+        self.me_keepalive_sent.load(Ordering::Relaxed)
+    }
+    pub fn get_me_keepalive_failed(&self) -> u64 {
+        self.me_keepalive_failed.load(Ordering::Relaxed)
+    }
+    pub fn get_me_keepalive_pong(&self) -> u64 {
+        self.me_keepalive_pong.load(Ordering::Relaxed)
+    }
+    pub fn get_me_keepalive_timeout(&self) -> u64 {
+        self.me_keepalive_timeout.load(Ordering::Relaxed)
+    }
     pub fn get_me_rpc_proxy_req_signal_sent_total(&self) -> u64 {
         self.me_rpc_proxy_req_signal_sent_total
             .load(Ordering::Relaxed)
@@ -1036,8 +1066,12 @@ impl Stats {
         self.me_rpc_proxy_req_signal_close_sent_total
             .load(Ordering::Relaxed)
     }
-    pub fn get_me_reconnect_attempts(&self) -> u64 { self.me_reconnect_attempts.load(Ordering::Relaxed) }
-    pub fn get_me_reconnect_success(&self) -> u64 { self.me_reconnect_success.load(Ordering::Relaxed) }
+    pub fn get_me_reconnect_attempts(&self) -> u64 {
+        self.me_reconnect_attempts.load(Ordering::Relaxed)
+    }
+    pub fn get_me_reconnect_success(&self) -> u64 {
+        self.me_reconnect_success.load(Ordering::Relaxed)
+    }
     pub fn get_me_handshake_reject_total(&self) -> u64 {
         self.me_handshake_reject_total.load(Ordering::Relaxed)
     }
@@ -1057,10 +1091,15 @@ impl Stats {
         self.relay_pressure_evict_total.load(Ordering::Relaxed)
     }
     pub fn get_relay_protocol_desync_close_total(&self) -> u64 {
-        self.relay_protocol_desync_close_total.load(Ordering::Relaxed)
+        self.relay_protocol_desync_close_total
+            .load(Ordering::Relaxed)
     }
-    pub fn get_me_crc_mismatch(&self) -> u64 { self.me_crc_mismatch.load(Ordering::Relaxed) }
-    pub fn get_me_seq_mismatch(&self) -> u64 { self.me_seq_mismatch.load(Ordering::Relaxed) }
+    pub fn get_me_crc_mismatch(&self) -> u64 {
+        self.me_crc_mismatch.load(Ordering::Relaxed)
+    }
+    pub fn get_me_seq_mismatch(&self) -> u64 {
+        self.me_seq_mismatch.load(Ordering::Relaxed)
+    }
     pub fn get_me_endpoint_quarantine_total(&self) -> u64 {
         self.me_endpoint_quarantine_total.load(Ordering::Relaxed)
     }
@@ -1071,8 +1110,7 @@ impl Stats {
         self.me_kdf_port_only_drift_total.load(Ordering::Relaxed)
     }
     pub fn get_me_hardswap_pending_reuse_total(&self) -> u64 {
-        self.me_hardswap_pending_reuse_total
-            .load(Ordering::Relaxed)
+        self.me_hardswap_pending_reuse_total.load(Ordering::Relaxed)
     }
     pub fn get_me_hardswap_pending_ttl_expired_total(&self) -> u64 {
         self.me_hardswap_pending_ttl_expired_total
@@ -1153,12 +1191,10 @@ impl Stats {
             .load(Ordering::Relaxed)
     }
     pub fn get_me_writers_active_current_gauge(&self) -> u64 {
-        self.me_writers_active_current_gauge
-            .load(Ordering::Relaxed)
+        self.me_writers_active_current_gauge.load(Ordering::Relaxed)
     }
     pub fn get_me_writers_warm_current_gauge(&self) -> u64 {
-        self.me_writers_warm_current_gauge
-            .load(Ordering::Relaxed)
+        self.me_writers_warm_current_gauge.load(Ordering::Relaxed)
     }
     pub fn get_me_floor_cap_block_total(&self) -> u64 {
         self.me_floor_cap_block_total.load(Ordering::Relaxed)
@@ -1178,7 +1214,9 @@ impl Stats {
         out.sort_by_key(|(code, _)| *code);
         out
     }
-    pub fn get_me_route_drop_no_conn(&self) -> u64 { self.me_route_drop_no_conn.load(Ordering::Relaxed) }
+    pub fn get_me_route_drop_no_conn(&self) -> u64 {
+        self.me_route_drop_no_conn.load(Ordering::Relaxed)
+    }
     pub fn get_me_route_drop_channel_closed(&self) -> u64 {
         self.me_route_drop_channel_closed.load(Ordering::Relaxed)
     }
@@ -1283,22 +1321,26 @@ impl Stats {
         self.me_writer_removed_total.load(Ordering::Relaxed)
     }
     pub fn get_me_writer_removed_unexpected_total(&self) -> u64 {
-        self.me_writer_removed_unexpected_total.load(Ordering::Relaxed)
+        self.me_writer_removed_unexpected_total
+            .load(Ordering::Relaxed)
     }
     pub fn get_me_refill_triggered_total(&self) -> u64 {
         self.me_refill_triggered_total.load(Ordering::Relaxed)
     }
     pub fn get_me_refill_skipped_inflight_total(&self) -> u64 {
-        self.me_refill_skipped_inflight_total.load(Ordering::Relaxed)
+        self.me_refill_skipped_inflight_total
+            .load(Ordering::Relaxed)
     }
     pub fn get_me_refill_failed_total(&self) -> u64 {
         self.me_refill_failed_total.load(Ordering::Relaxed)
     }
     pub fn get_me_writer_restored_same_endpoint_total(&self) -> u64 {
-        self.me_writer_restored_same_endpoint_total.load(Ordering::Relaxed)
+        self.me_writer_restored_same_endpoint_total
+            .load(Ordering::Relaxed)
     }
     pub fn get_me_writer_restored_fallback_total(&self) -> u64 {
-        self.me_writer_restored_fallback_total.load(Ordering::Relaxed)
+        self.me_writer_restored_fallback_total
+            .load(Ordering::Relaxed)
     }
     pub fn get_me_no_writer_failfast_total(&self) -> u64 {
         self.me_no_writer_failfast_total.load(Ordering::Relaxed)
@@ -1317,7 +1359,7 @@ impl Stats {
         self.ip_reservation_rollback_quota_limit_total
             .load(Ordering::Relaxed)
     }
-    
+
     pub fn increment_user_connects(&self, user: &str) {
         if !self.telemetry_user_enabled() {
             return;
@@ -1332,7 +1374,7 @@ impl Stats {
         Self::touch_user_stats(stats.value());
         stats.connects.fetch_add(1, Ordering::Relaxed);
     }
-    
+
     pub fn increment_user_curr_connects(&self, user: &str) {
         if !self.telemetry_user_enabled() {
             return;
@@ -1360,7 +1402,9 @@ impl Stats {
         let counter = &stats.curr_connects;
         let mut current = counter.load(Ordering::Relaxed);
         loop {
-            if let Some(max) = limit && current >= max {
+            if let Some(max) = limit
+                && current >= max
+            {
                 return false;
             }
             match counter.compare_exchange_weak(
@@ -1374,7 +1418,7 @@ impl Stats {
             }
         }
     }
-    
+
     pub fn decrement_user_curr_connects(&self, user: &str) {
         self.maybe_cleanup_user_stats();
         if let Some(stats) = self.user_stats.get(user) {
@@ -1397,13 +1441,14 @@ impl Stats {
             }
         }
     }
-    
+
     pub fn get_user_curr_connects(&self, user: &str) -> u64 {
-        self.user_stats.get(user)
+        self.user_stats
+            .get(user)
             .map(|s| s.curr_connects.load(Ordering::Relaxed))
             .unwrap_or(0)
     }
-    
+
     pub fn add_user_octets_from(&self, user: &str, bytes: u64) {
         if !self.telemetry_user_enabled() {
             return;
@@ -1418,7 +1463,7 @@ impl Stats {
         Self::touch_user_stats(stats.value());
         stats.octets_from_client.fetch_add(bytes, Ordering::Relaxed);
     }
-    
+
     pub fn add_user_octets_to(&self, user: &str, bytes: u64) {
         if !self.telemetry_user_enabled() {
             return;
@@ -1433,7 +1478,7 @@ impl Stats {
         Self::touch_user_stats(stats.value());
         stats.octets_to_client.fetch_add(bytes, Ordering::Relaxed);
     }
-    
+
     pub fn increment_user_msgs_from(&self, user: &str) {
         if !self.telemetry_user_enabled() {
             return;
@@ -1448,7 +1493,7 @@ impl Stats {
         Self::touch_user_stats(stats.value());
         stats.msgs_from_client.fetch_add(1, Ordering::Relaxed);
     }
-    
+
     pub fn increment_user_msgs_to(&self, user: &str) {
         if !self.telemetry_user_enabled() {
             return;
@@ -1463,17 +1508,20 @@ impl Stats {
         Self::touch_user_stats(stats.value());
         stats.msgs_to_client.fetch_add(1, Ordering::Relaxed);
     }
-    
+
     pub fn get_user_total_octets(&self, user: &str) -> u64 {
-        self.user_stats.get(user)
+        self.user_stats
+            .get(user)
             .map(|s| {
-                s.octets_from_client.load(Ordering::Relaxed) +
-                s.octets_to_client.load(Ordering::Relaxed)
+                s.octets_from_client.load(Ordering::Relaxed)
+                    + s.octets_to_client.load(Ordering::Relaxed)
             })
             .unwrap_or(0)
     }
-    
-    pub fn get_handshake_timeouts(&self) -> u64 { self.handshake_timeouts.load(Ordering::Relaxed) }
+
+    pub fn get_handshake_timeouts(&self) -> u64 {
+        self.handshake_timeouts.load(Ordering::Relaxed)
+    }
     pub fn get_upstream_connect_attempt_total(&self) -> u64 {
         self.upstream_connect_attempt_total.load(Ordering::Relaxed)
     }
@@ -1488,10 +1536,12 @@ impl Stats {
             .load(Ordering::Relaxed)
     }
     pub fn get_upstream_connect_attempts_bucket_1(&self) -> u64 {
-        self.upstream_connect_attempts_bucket_1.load(Ordering::Relaxed)
+        self.upstream_connect_attempts_bucket_1
+            .load(Ordering::Relaxed)
     }
     pub fn get_upstream_connect_attempts_bucket_2(&self) -> u64 {
-        self.upstream_connect_attempts_bucket_2.load(Ordering::Relaxed)
+        self.upstream_connect_attempts_bucket_2
+            .load(Ordering::Relaxed)
     }
     pub fn get_upstream_connect_attempts_bucket_3_4(&self) -> u64 {
         self.upstream_connect_attempts_bucket_3_4
@@ -1539,7 +1589,8 @@ impl Stats {
     }
 
     pub fn uptime_secs(&self) -> f64 {
-        self.start_time.read()
+        self.start_time
+            .read()
             .map(|t| t.elapsed().as_secs_f64())
             .unwrap_or(0.0)
     }
@@ -1578,7 +1629,7 @@ impl ReplayShard {
             seq_counter: 0,
         }
     }
-    
+
     fn next_seq(&mut self) -> u64 {
         self.seq_counter += 1;
         self.seq_counter
@@ -1589,13 +1640,13 @@ impl ReplayShard {
             return;
         }
         let cutoff = now.checked_sub(window).unwrap_or(now);
-        
+
         while let Some((ts, _, _)) = self.queue.front() {
             if *ts >= cutoff {
                 break;
             }
             let (_, key, queue_seq) = self.queue.pop_front().unwrap();
-            
+
             // Use key.as_ref() to get &[u8] — avoids Borrow<Q> ambiguity
             // between Borrow<[u8]> and Borrow<Box<[u8]>>
             if let Some(entry) = self.cache.peek(key.as_ref())
@@ -1605,23 +1656,24 @@ impl ReplayShard {
             }
         }
     }
-    
+
     fn check(&mut self, key: &[u8], now: Instant, window: Duration) -> bool {
         self.cleanup(now, window);
         // key is &[u8], resolves Q=[u8] via Box<[u8]>: Borrow<[u8]>
         self.cache.get(key).is_some()
     }
-    
+
     fn add(&mut self, key: &[u8], now: Instant, window: Duration) {
         self.cleanup(now, window);
-        
+
         let seq = self.next_seq();
         let boxed_key: Box<[u8]> = key.into();
-        
-        self.cache.put(boxed_key.clone(), ReplayEntry { seen_at: now, seq });
+
+        self.cache
+            .put(boxed_key.clone(), ReplayEntry { seen_at: now, seq });
         self.queue.push_back((now, boxed_key, seq));
     }
-    
+
     fn len(&self) -> usize {
         self.cache.len()
     }
@@ -1696,15 +1748,19 @@ impl ReplayChecker {
     }
 
     // Compatibility helpers (non-atomic split operations) — prefer check_and_add_*.
-    pub fn check_handshake(&self, data: &[u8]) -> bool { self.check_and_add_handshake(data) }
+    pub fn check_handshake(&self, data: &[u8]) -> bool {
+        self.check_and_add_handshake(data)
+    }
     pub fn add_handshake(&self, data: &[u8]) {
         self.add_only(data, &self.handshake_shards, self.window)
     }
-    pub fn check_tls_digest(&self, data: &[u8]) -> bool { self.check_and_add_tls_digest(data) }
+    pub fn check_tls_digest(&self, data: &[u8]) -> bool {
+        self.check_and_add_tls_digest(data)
+    }
     pub fn add_tls_digest(&self, data: &[u8]) {
         self.add_only(data, &self.tls_shards, self.tls_window)
     }
-    
+
     pub fn stats(&self) -> ReplayStats {
         let mut total_entries = 0;
         let mut total_queue_len = 0;
@@ -1718,7 +1774,7 @@ impl ReplayChecker {
             total_entries += s.cache.len();
             total_queue_len += s.queue.len();
         }
-        
+
         ReplayStats {
             total_entries,
             total_queue_len,
@@ -1730,20 +1786,20 @@ impl ReplayChecker {
             window_secs: self.window.as_secs(),
         }
     }
-    
+
     pub async fn run_periodic_cleanup(&self) {
         let interval = if self.window.as_secs() > 60 {
             Duration::from_secs(30)
         } else {
             Duration::from_secs(self.window.as_secs().max(1) / 2)
         };
-        
+
         loop {
             tokio::time::sleep(interval).await;
-            
+
             let now = Instant::now();
             let mut cleaned = 0usize;
-            
+
             for shard_mutex in &self.handshake_shards {
                 let mut shard = shard_mutex.lock();
                 let before = shard.len();
@@ -1758,9 +1814,9 @@ impl ReplayChecker {
                 let after = shard.len();
                 cleaned += before.saturating_sub(after);
             }
-            
+
             self.cleanups.fetch_add(1, Ordering::Relaxed);
-            
+
             if cleaned > 0 {
                 debug!(cleaned = cleaned, "Replay checker: periodic cleanup");
             }
@@ -1782,13 +1838,19 @@ pub struct ReplayStats {
 
 impl ReplayStats {
     pub fn hit_rate(&self) -> f64 {
-        if self.total_checks == 0 { 0.0 }
-        else { (self.total_hits as f64 / self.total_checks as f64) * 100.0 }
+        if self.total_checks == 0 {
+            0.0
+        } else {
+            (self.total_hits as f64 / self.total_checks as f64) * 100.0
+        }
     }
-    
+
     pub fn ghost_ratio(&self) -> f64 {
-        if self.total_entries == 0 { 0.0 }
-        else { self.total_queue_len as f64 / self.total_entries as f64 }
+        if self.total_entries == 0 {
+            0.0
+        } else {
+            self.total_queue_len as f64 / self.total_entries as f64
+        }
     }
 }
 
@@ -1797,7 +1859,7 @@ mod tests {
     use super::*;
     use crate::config::MeTelemetryLevel;
     use std::sync::Arc;
-    
+
     #[test]
     fn test_stats_shared_counters() {
         let stats = Arc::new(Stats::new());
@@ -1840,15 +1902,15 @@ mod tests {
         assert_eq!(stats.get_me_keepalive_sent(), 0);
         assert_eq!(stats.get_me_route_drop_queue_full(), 0);
     }
-    
+
     #[test]
     fn test_replay_checker_basic() {
         let checker = ReplayChecker::new(100, Duration::from_secs(60));
         assert!(!checker.check_handshake(b"test1")); // first time, inserts
-        assert!(checker.check_handshake(b"test1"));  // duplicate
+        assert!(checker.check_handshake(b"test1")); // duplicate
         assert!(!checker.check_handshake(b"test2")); // new key inserts
     }
-    
+
     #[test]
     fn test_replay_checker_duplicate_add() {
         let checker = ReplayChecker::new(100, Duration::from_secs(60));
@@ -1856,7 +1918,7 @@ mod tests {
         checker.add_handshake(b"dup");
         assert!(checker.check_handshake(b"dup"));
     }
-    
+
     #[test]
     fn test_replay_checker_expiration() {
         let checker = ReplayChecker::new(100, Duration::from_millis(50));
@@ -1865,7 +1927,7 @@ mod tests {
         std::thread::sleep(Duration::from_millis(100));
         assert!(!checker.check_handshake(b"expire"));
     }
-    
+
     #[test]
     fn test_replay_checker_stats() {
         let checker = ReplayChecker::new(100, Duration::from_secs(60));
@@ -1878,7 +1940,7 @@ mod tests {
         assert_eq!(stats.total_checks, 4);
         assert_eq!(stats.total_hits, 1);
     }
-    
+
     #[test]
     fn test_replay_checker_many_keys() {
         let checker = ReplayChecker::new(10_000, Duration::from_secs(60));

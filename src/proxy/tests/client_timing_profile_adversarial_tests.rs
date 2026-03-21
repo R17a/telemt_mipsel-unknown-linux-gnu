@@ -7,7 +7,7 @@ use crate::config::{UpstreamConfig, UpstreamType};
 use crate::protocol::constants::MIN_TLS_CLIENT_HELLO_SIZE;
 use std::net::SocketAddr;
 use std::time::{Duration, Instant};
-use tokio::io::{duplex, AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, duplex};
 use tokio::net::{TcpListener, TcpStream};
 
 const REPLY_404: &[u8] = b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n";
@@ -135,10 +135,13 @@ async fn run_generic_once(class: ProbeClass) -> u128 {
     client_side.shutdown().await.unwrap();
 
     let mut observed = vec![0u8; REPLY_404.len()];
-    tokio::time::timeout(Duration::from_secs(2), client_side.read_exact(&mut observed))
-        .await
-        .unwrap()
-        .unwrap();
+    tokio::time::timeout(
+        Duration::from_secs(2),
+        client_side.read_exact(&mut observed),
+    )
+    .await
+    .unwrap()
+    .unwrap();
     assert_eq!(observed, REPLY_404);
 
     tokio::time::timeout(Duration::from_secs(2), accept_task)

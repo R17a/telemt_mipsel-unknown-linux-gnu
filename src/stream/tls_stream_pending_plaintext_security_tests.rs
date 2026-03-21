@@ -13,8 +13,7 @@ fn reading_body_pending_application_plaintext_is_preserved_on_into_inner() {
 
     let (_inner, pending) = reader.into_inner_with_pending_plaintext();
     assert_eq!(
-        pending,
-        sample,
+        pending, sample,
         "partial application-data body must survive into fallback path"
     );
 }
@@ -59,7 +58,10 @@ fn partial_header_state_does_not_produce_plaintext() {
     reader.state = TlsReaderState::ReadingHeader { header };
 
     let (_inner, pending) = reader.into_inner_with_pending_plaintext();
-    assert!(pending.is_empty(), "partial header bytes are not plaintext payload");
+    assert!(
+        pending.is_empty(),
+        "partial header bytes are not plaintext payload"
+    );
 }
 
 #[test]
@@ -83,7 +85,10 @@ fn adversarial_poisoned_state_never_leaks_pending_bytes() {
     };
 
     let (_inner, pending) = reader.into_inner_with_pending_plaintext();
-    assert!(pending.is_empty(), "poisoned state must fail-closed for fallback payload");
+    assert!(
+        pending.is_empty(),
+        "poisoned state must fail-closed for fallback payload"
+    );
 }
 
 #[test]
@@ -101,7 +106,10 @@ fn stress_large_application_fragment_survives_state_extraction() {
     };
 
     let (_inner, pending) = reader.into_inner_with_pending_plaintext();
-    assert_eq!(pending, payload, "large pending application plaintext must be preserved exactly");
+    assert_eq!(
+        pending, payload,
+        "large pending application plaintext must be preserved exactly"
+    );
 }
 
 #[test]

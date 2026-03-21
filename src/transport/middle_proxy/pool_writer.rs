@@ -1,8 +1,8 @@
+use std::io::ErrorKind;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU32, AtomicU64, Ordering};
 use std::time::{Duration, Instant};
-use std::io::ErrorKind;
 
 use bytes::Bytes;
 use bytes::BytesMut;
@@ -40,7 +40,10 @@ impl MePool {
     pub(crate) async fn prune_closed_writers(self: &Arc<Self>) {
         let closed_writer_ids: Vec<u64> = {
             let ws = self.writers.read().await;
-            ws.iter().filter(|w| w.tx.is_closed()).map(|w| w.id).collect()
+            ws.iter()
+                .filter(|w| w.tx.is_closed())
+                .map(|w| w.id)
+                .collect()
         };
         if closed_writer_ids.is_empty() {
             return;
@@ -88,12 +91,7 @@ impl MePool {
         writer_dc: i32,
     ) -> Result<()> {
         self.connect_one_with_generation_contour_for_dc_with_cap_policy(
-            addr,
-            rng,
-            generation,
-            contour,
-            writer_dc,
-            false,
+            addr, rng, generation, contour, writer_dc, false,
         )
         .await
     }
@@ -118,12 +116,16 @@ impl MePool {
 
         let secret_len = self.proxy_secret.read().await.secret.len();
         if secret_len < 32 {
-            return Err(ProxyError::Proxy("proxy-secret too short for ME auth".into()));
+            return Err(ProxyError::Proxy(
+                "proxy-secret too short for ME auth".into(),
+            ));
         }
 
         let dc_idx = i16::try_from(writer_dc).ok();
         let (stream, _connect_ms, upstream_egress) = self.connect_tcp(addr, dc_idx).await?;
-        let hs = self.handshake_only(stream, addr, upstream_egress, rng).await?;
+        let hs = self
+            .handshake_only(stream, addr, upstream_egress, rng)
+            .await?;
 
         let writer_id = self.next_writer_id.fetch_add(1, Ordering::Relaxed);
         let contour = Arc::new(AtomicU8::new(contour.as_u8()));
@@ -293,7 +295,8 @@ impl MePool {
                 let effective_jitter_ms = keepalive_jitter.as_millis().min(jitter_cap_ms).max(1);
                 Duration::from_millis(rand::rng().random_range(0..=effective_jitter_ms as u64))
             } else {
-                let jitter = rand::rng().random_range(-ME_ACTIVE_PING_JITTER_SECS..=ME_ACTIVE_PING_JITTER_SECS);
+                let jitter = rand::rng()
+                    .random_range(-ME_ACTIVE_PING_JITTER_SECS..=ME_ACTIVE_PING_JITTER_SECS);
                 let wait = (ME_ACTIVE_PING_SECS as i64 + jitter).max(5) as u64;
                 Duration::from_secs(wait)
             };
@@ -312,10 +315,15 @@ impl MePool {
                         break;
                     }
                     let jitter_cap_ms = interval.as_millis() / 2;
-                    let effective_jitter_ms = keepalive_jitter.as_millis().min(jitter_cap_ms).max(1);
-                    interval + Duration::from_millis(rand::rng().random_range(0..=effective_jitter_ms as u64))
+                    let effective_jitter_ms =
+                        keepalive_jitter.as_millis().min(jitter_cap_ms).max(1);
+                    interval
+                        + Duration::from_millis(
+                            rand::rng().random_range(0..=effective_jitter_ms as u64),
+                        )
                 } else {
-                    let jitter = rand::rng().random_range(-ME_ACTIVE_PING_JITTER_SECS..=ME_ACTIVE_PING_JITTER_SECS);
+                    let jitter = rand::rng()
+                        .random_range(-ME_ACTIVE_PING_JITTER_SECS..=ME_ACTIVE_PING_JITTER_SECS);
                     let secs = (ME_ACTIVE_PING_SECS as i64 + jitter).max(5) as u64;
                     Duration::from_secs(secs)
                 };
@@ -415,7 +423,10 @@ impl MePool {
                         .as_millis()
                         .min(jitter_cap_ms)
                         .max(1);
-                    interval + Duration::from_millis(rand::rng().random_range(0..=effective_jitter_ms as u64))
+                    interval
+                        + Duration::from_millis(
+                            rand::rng().random_range(0..=effective_jitter_ms as u64),
+                        )
                 };
 
                 tokio::select! {
@@ -596,9 +607,7 @@ impl MePool {
                 // Quarantine flapping endpoints regardless of draining state.
                 self.maybe_quarantine_flapping_endpoint(addr, uptime).await;
             }
-            if trigger_refill
-                && let Some(writer_dc) = removed_dc
-            {
+            if trigger_refill && let Some(writer_dc) = removed_dc {
                 self.trigger_immediate_refill_for_dc(addr, writer_dc);
             }
         }
@@ -646,9 +655,7 @@ impl MePool {
         let timeout_secs = timeout.map(|d| d.as_secs()).unwrap_or(0);
         debug!(
             writer_id,
-            timeout_secs,
-            allow_drain_fallback,
-            "ME writer marked draining"
+            timeout_secs, allow_drain_fallback, "ME writer marked draining"
         );
     }
 
@@ -674,7 +681,9 @@ impl MePool {
                     return true;
                 }
 
-                let started = writer.draining_started_at_epoch_secs.load(Ordering::Relaxed);
+                let started = writer
+                    .draining_started_at_epoch_secs
+                    .load(Ordering::Relaxed);
                 if started == 0 {
                     return false;
                 }

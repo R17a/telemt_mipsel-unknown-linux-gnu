@@ -2,8 +2,8 @@ use super::*;
 use crate::crypto::AesCtr;
 use crate::stats::Stats;
 use crate::stream::{BufferPool, CryptoReader};
-use std::sync::{Arc, Mutex, OnceLock};
 use std::sync::atomic::AtomicU64;
+use std::sync::{Arc, Mutex, OnceLock};
 use tokio::io::AsyncWriteExt;
 use tokio::io::duplex;
 use tokio::time::{Duration as TokioDuration, Instant as TokioInstant, timeout};
@@ -93,7 +93,9 @@ async fn idle_policy_soft_mark_then_hard_close_increments_reason_counters() {
     .await
     .expect("idle test must complete");
 
-    assert!(matches!(result, Err(ProxyError::Io(ref e)) if e.kind() == std::io::ErrorKind::TimedOut));
+    assert!(
+        matches!(result, Err(ProxyError::Io(ref e)) if e.kind() == std::io::ErrorKind::TimedOut)
+    );
     let err_text = match result {
         Err(ProxyError::Io(ref e)) => e.to_string(),
         _ => String::new(),
@@ -143,7 +145,9 @@ async fn idle_policy_downstream_activity_grace_extends_hard_deadline() {
     .await
     .expect("grace test must complete");
 
-    assert!(matches!(result, Err(ProxyError::Io(ref e)) if e.kind() == std::io::ErrorKind::TimedOut));
+    assert!(
+        matches!(result, Err(ProxyError::Io(ref e)) if e.kind() == std::io::ErrorKind::TimedOut)
+    );
     assert!(
         start.elapsed() >= TokioDuration::from_millis(100),
         "recent downstream activity must extend hard idle deadline"
@@ -171,7 +175,9 @@ async fn relay_idle_policy_disabled_keeps_legacy_timeout_behavior() {
     )
     .await;
 
-    assert!(matches!(result, Err(ProxyError::Io(ref e)) if e.kind() == std::io::ErrorKind::TimedOut));
+    assert!(
+        matches!(result, Err(ProxyError::Io(ref e)) if e.kind() == std::io::ErrorKind::TimedOut)
+    );
     let err_text = match result {
         Err(ProxyError::Io(ref e)) => e.to_string(),
         _ => String::new(),
@@ -225,8 +231,13 @@ async fn adversarial_partial_frame_trickle_cannot_bypass_hard_idle_close() {
     .await
     .expect("partial frame trickle test must complete");
 
-    assert!(matches!(result, Err(ProxyError::Io(ref e)) if e.kind() == std::io::ErrorKind::TimedOut));
-    assert_eq!(frame_counter, 0, "partial trickle must not count as a valid frame");
+    assert!(
+        matches!(result, Err(ProxyError::Io(ref e)) if e.kind() == std::io::ErrorKind::TimedOut)
+    );
+    assert_eq!(
+        frame_counter, 0,
+        "partial trickle must not count as a valid frame"
+    );
 }
 
 #[tokio::test]
@@ -291,7 +302,10 @@ async fn protocol_desync_small_frame_updates_reason_counter() {
     plaintext.extend_from_slice(&3u32.to_le_bytes());
     plaintext.extend_from_slice(&[1u8, 2, 3]);
     let encrypted = encrypt_for_reader(&plaintext);
-    writer.write_all(&encrypted).await.expect("must write frame");
+    writer
+        .write_all(&encrypted)
+        .await
+        .expect("must write frame");
 
     let result = read_client_payload(
         &mut crypto_reader,
@@ -657,7 +671,8 @@ fn blackhat_pressure_seq_saturation_must_not_break_multiple_distinct_events() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn integration_race_single_pressure_event_allows_at_most_one_eviction_under_parallel_claims() {
+async fn integration_race_single_pressure_event_allows_at_most_one_eviction_under_parallel_claims()
+{
     let _guard = acquire_idle_pressure_test_lock();
     clear_relay_idle_pressure_state_for_testing();
 
@@ -680,7 +695,8 @@ async fn integration_race_single_pressure_event_allows_at_most_one_eviction_unde
             let conn_id = *conn_id;
             let stats = stats.clone();
             joins.push(tokio::spawn(async move {
-                let evicted = maybe_evict_idle_candidate_on_pressure(conn_id, &mut seen, stats.as_ref());
+                let evicted =
+                    maybe_evict_idle_candidate_on_pressure(conn_id, &mut seen, stats.as_ref());
                 (idx, conn_id, seen, evicted)
             }));
         }
@@ -753,7 +769,8 @@ async fn integration_race_burst_pressure_with_churn_preserves_empty_set_invalida
             let conn_id = *conn_id;
             let stats = stats.clone();
             joins.push(tokio::spawn(async move {
-                let evicted = maybe_evict_idle_candidate_on_pressure(conn_id, &mut seen, stats.as_ref());
+                let evicted =
+                    maybe_evict_idle_candidate_on_pressure(conn_id, &mut seen, stats.as_ref());
                 (idx, conn_id, seen, evicted)
             }));
         }

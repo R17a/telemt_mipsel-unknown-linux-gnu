@@ -9,9 +9,9 @@ use tokio_util::sync::CancellationToken;
 
 use super::codec::WriterCommand;
 use super::health::health_drain_close_budget;
+use super::me_health_monitor;
 use super::pool::{MePool, MeWriter, WriterContour};
 use super::registry::ConnMeta;
-use super::me_health_monitor;
 use crate::config::{GeneralConfig, MeRouteNoWriterMode, MeSocksKdfPolicy, MeWriterPickMode};
 use crate::crypto::SecureRandom;
 use crate::network::probe::NetworkDecision;
@@ -185,7 +185,9 @@ async fn wait_for_pool_empty(pool: &Arc<MePool>, timeout: Duration) {
 async fn me_health_monitor_drains_expired_backlog_over_multiple_cycles() {
     let (pool, rng) = make_pool(128, 1, 1).await;
     let now_epoch_secs = MePool::now_epoch_secs();
-    let writer_total = health_drain_close_budget().saturating_mul(2).saturating_add(9);
+    let writer_total = health_drain_close_budget()
+        .saturating_mul(2)
+        .saturating_add(9);
     for writer_id in 1..=writer_total as u64 {
         insert_draining_writer(
             &pool,

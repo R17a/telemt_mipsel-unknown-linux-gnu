@@ -115,6 +115,12 @@ async fn timing_normalization_does_not_sleep_if_path_already_exceeds_ceiling() {
 
     let slow = measure_bad_client_duration_ms(MaskPath::SlowBackend, floor, ceiling).await;
 
-    assert!(slow >= 280, "slow backend path should remain slow (got {slow}ms)");
-    assert!(slow <= 520, "slow backend path should remain bounded in tests (got {slow}ms)");
+    assert!(
+        slow >= 280,
+        "slow backend path should remain slow (got {slow}ms)"
+    );
+    assert!(
+        slow <= 520,
+        "slow backend path should remain bounded in tests (got {slow}ms)"
+    );
 }

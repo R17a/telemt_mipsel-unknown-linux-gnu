@@ -8,7 +8,7 @@ use crate::proxy::handshake::HandshakeSuccess;
 use crate::stream::{CryptoReader, CryptoWriter};
 use crate::transport::proxy_protocol::ProxyProtocolV1Builder;
 use std::net::Ipv4Addr;
-use tokio::io::{duplex, AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, duplex};
 use tokio::net::{TcpListener, TcpStream};
 
 #[test]
@@ -49,25 +49,33 @@ async fn user_connection_reservation_drop_enqueues_cleanup_synchronously() {
     let stats = Arc::new(crate::stats::Stats::new());
     let user = "sync-drop-user".to_string();
     let ip: std::net::IpAddr = "192.168.1.1".parse().unwrap();
-    
+
     ip_tracker.set_user_limit(&user, 1).await;
     ip_tracker.check_and_add(&user, ip).await.unwrap();
     stats.increment_user_curr_connects(&user);
-    
+
     assert_eq!(ip_tracker.get_active_ip_count(&user).await, 1);
     assert_eq!(stats.get_user_curr_connects(&user), 1);
-    
-    let reservation = UserConnectionReservation::new(stats.clone(), ip_tracker.clone(), user.clone(), ip);
-    
+
+    let reservation =
+        UserConnectionReservation::new(stats.clone(), ip_tracker.clone(), user.clone(), ip);
+
     // Drop the reservation synchronously without any tokio::spawn/await yielding!
     drop(reservation);
-    
+
     // The IP is now inside the cleanup_queue, check that the queue has length 1
     let queue_len = ip_tracker.cleanup_queue.lock().unwrap().len();
-    assert_eq!(queue_len, 1, "Reservation drop must push directly to synchronized IP queue");
-    
-    assert_eq!(stats.get_user_curr_connects(&user), 0, "Stats must decrement immediately");
-    
+    assert_eq!(
+        queue_len, 1,
+        "Reservation drop must push directly to synchronized IP queue"
+    );
+
+    assert_eq!(
+        stats.get_user_curr_connects(&user),
+        0,
+        "Stats must decrement immediately"
+    );
+
     ip_tracker.drain_cleanup_queue().await;
     assert_eq!(ip_tracker.get_active_ip_count(&user).await, 0);
 }
@@ -286,7 +294,10 @@ async fn relay_cutover_releases_user_gate_and_ip_reservation() {
         .await
         .expect("relay must terminate after cutover")
         .expect("relay task must not panic");
-    assert!(relay_result.is_err(), "cutover must terminate direct relay session");
+    assert!(
+        relay_result.is_err(),
+        "cutover must terminate direct relay session"
+    );
 
     assert_eq!(
         stats.get_user_curr_connects(user),
@@ -447,7 +458,12 @@ async fn stress_drop_without_release_converges_to_zero_user_and_ip_state() {
     let mut reservations = Vec::new();
     for idx in 0..512u16 {
         let peer = std::net::SocketAddr::new(
-            std::net::IpAddr::V4(std::net::Ipv4Addr::new(198, 51, (idx >> 8) as u8, (idx & 0xff) as u8)),
+            std::net::IpAddr::V4(std::net::Ipv4Addr::new(
+                198,
+                51,
+                (idx >> 8) as u8,
+                (idx & 0xff) as u8,
+            )),
             30_000 + idx,
         );
         let reservation = RunningClientHandler::acquire_user_connection_reservation_static(
@@ -510,10 +526,15 @@ async fn proxy_protocol_header_is_rejected_when_trust_list_is_empty() {
         false,
         stats.clone(),
     ));
-    let replay_checker = std::sync::Arc::new(crate::stats::ReplayChecker::new(128, std::time::Duration::from_secs(60)));
+    let replay_checker = std::sync::Arc::new(crate::stats::ReplayChecker::new(
+        128,
+        std::time::Duration::from_secs(60),
+    ));
     let buffer_pool = std::sync::Arc::new(crate::stream::BufferPool::new());
     let rng = std::sync::Arc::new(crate::crypto::SecureRandom::new());
-    let route_runtime = std::sync::Arc::new(crate::proxy::route_mode::RouteRuntimeController::new(crate::proxy::route_mode::RelayRouteMode::Direct));
+    let route_runtime = std::sync::Arc::new(crate::proxy::route_mode::RouteRuntimeController::new(
+        crate::proxy::route_mode::RelayRouteMode::Direct,
+    ));
     let ip_tracker = std::sync::Arc::new(crate::ip_tracker::UserIpTracker::new());
     let beobachten = std::sync::Arc::new(crate::stats::beobachten::BeobachtenStore::new());
 
@@ -581,10 +602,16 @@ async fn proxy_protocol_header_from_untrusted_peer_range_is_rejected_under_load(
             false,
             stats.clone(),
         ));
-        let replay_checker = std::sync::Arc::new(crate::stats::ReplayChecker::new(64, std::time::Duration::from_secs(60)));
+        let replay_checker = std::sync::Arc::new(crate::stats::ReplayChecker::new(
+            64,
+            std::time::Duration::from_secs(60),
+        ));
         let buffer_pool = std::sync::Arc::new(crate::stream::BufferPool::new());
         let rng = std::sync::Arc::new(crate::crypto::SecureRandom::new());
-        let route_runtime = std::sync::Arc::new(crate::proxy::route_mode::RouteRuntimeController::new(crate::proxy::route_mode::RelayRouteMode::Direct));
+        let route_runtime =
+            std::sync::Arc::new(crate::proxy::route_mode::RouteRuntimeController::new(
+                crate::proxy::route_mode::RelayRouteMode::Direct,
+            ));
         let ip_tracker = std::sync::Arc::new(crate::ip_tracker::UserIpTracker::new());
         let beobachten = std::sync::Arc::new(crate::stats::beobachten::BeobachtenStore::new());
 
@@ -669,8 +696,16 @@ async fn reservation_limit_failure_does_not_leak_curr_connects_counter() {
         matches!(second, Err(crate::error::ProxyError::ConnectionLimitExceeded { user: denied }) if denied == user),
         "second reservation must be rejected at the configured tcp-conns limit"
     );
-    assert_eq!(stats.get_user_curr_connects(user), 1, "failed acquisition must not leak a counter increment");
-    assert_eq!(ip_tracker.get_active_ip_count(user).await, 1, "failed acquisition must not mutate IP tracker state");
+    assert_eq!(
+        stats.get_user_curr_connects(user),
+        1,
+        "failed acquisition must not leak a counter increment"
+    );
+    assert_eq!(
+        ip_tracker.get_active_ip_count(user).await,
+        1,
+        "failed acquisition must not mutate IP tracker state"
+    );
 
     first.release().await;
     ip_tracker.drain_cleanup_queue().await;
@@ -1119,7 +1154,10 @@ async fn partial_tls_header_stall_triggers_handshake_timeout() {
 }
 
 fn make_valid_tls_client_hello_with_len(secret: &[u8], timestamp: u32, tls_len: usize) -> Vec<u8> {
-    assert!(tls_len <= u16::MAX as usize, "TLS length must fit into record header");
+    assert!(
+        tls_len <= u16::MAX as usize,
+        "TLS length must fit into record header"
+    );
 
     let total_len = 5 + tls_len;
     let mut handshake = vec![0x42u8; total_len];
@@ -1140,7 +1178,8 @@ fn make_valid_tls_client_hello_with_len(secret: &[u8], timestamp: u32, tls_len: 
         digest[28 + i] ^= ts[i];
     }
 
-    handshake[tls::TLS_DIGEST_POS..tls::TLS_DIGEST_POS + tls::TLS_DIGEST_LEN].copy_from_slice(&digest);
+    handshake[tls::TLS_DIGEST_POS..tls::TLS_DIGEST_POS + tls::TLS_DIGEST_LEN]
+        .copy_from_slice(&digest);
     handshake
 }
 
@@ -1203,8 +1242,7 @@ fn make_valid_tls_client_hello_with_alpn(
         digest[28 + i] ^= ts[i];
     }
 
-    record[tls::TLS_DIGEST_POS..tls::TLS_DIGEST_POS + tls::TLS_DIGEST_LEN]
-        .copy_from_slice(&digest);
+    record[tls::TLS_DIGEST_POS..tls::TLS_DIGEST_POS + tls::TLS_DIGEST_LEN].copy_from_slice(&digest);
     record
 }
 
@@ -1233,9 +1271,10 @@ async fn valid_tls_path_does_not_fall_back_to_mask_backend() {
     cfg.censorship.mask_port = backend_addr.port();
     cfg.censorship.mask_proxy_protocol = 0;
     cfg.access.ignore_time_skew = true;
-    cfg.access
-        .users
-        .insert("user".to_string(), "11111111111111111111111111111111".to_string());
+    cfg.access.users.insert(
+        "user".to_string(),
+        "11111111111111111111111111111111".to_string(),
+    );
 
     let config = Arc::new(cfg);
     let stats = Arc::new(Stats::new());
@@ -1307,8 +1346,7 @@ async fn valid_tls_path_does_not_fall_back_to_mask_backend() {
 
     let bad_after = stats_for_assert.get_connects_bad();
     assert_eq!(
-        bad_before,
-        bad_after,
+        bad_before, bad_after,
         "Authenticated TLS path must not increment connects_bad"
     );
 }
@@ -1341,9 +1379,10 @@ async fn valid_tls_with_invalid_mtproto_falls_back_to_mask_backend() {
     cfg.censorship.mask_port = backend_addr.port();
     cfg.censorship.mask_proxy_protocol = 0;
     cfg.access.ignore_time_skew = true;
-    cfg.access
-        .users
-        .insert("user".to_string(), "33333333333333333333333333333333".to_string());
+    cfg.access.users.insert(
+        "user".to_string(),
+        "33333333333333333333333333333333".to_string(),
+    );
 
     let config = Arc::new(cfg);
     let stats = Arc::new(Stats::new());
@@ -1394,7 +1433,10 @@ async fn valid_tls_with_invalid_mtproto_falls_back_to_mask_backend() {
 
     client_side.write_all(&client_hello).await.unwrap();
     let mut tls_response_head = [0u8; 5];
-    client_side.read_exact(&mut tls_response_head).await.unwrap();
+    client_side
+        .read_exact(&mut tls_response_head)
+        .await
+        .unwrap();
     assert_eq!(tls_response_head[0], 0x16);
 
     client_side.write_all(&tls_app_record).await.unwrap();
@@ -1443,9 +1485,10 @@ async fn client_handler_tls_bad_mtproto_is_forwarded_to_mask_backend() {
     cfg.censorship.mask_port = backend_addr.port();
     cfg.censorship.mask_proxy_protocol = 0;
     cfg.access.ignore_time_skew = true;
-    cfg.access
-        .users
-        .insert("user".to_string(), "44444444444444444444444444444444".to_string());
+    cfg.access.users.insert(
+        "user".to_string(),
+        "44444444444444444444444444444444".to_string(),
+    );
 
     let config = Arc::new(cfg);
     let stats = Arc::new(Stats::new());
@@ -1563,9 +1606,10 @@ async fn alpn_mismatch_tls_probe_is_masked_through_client_pipeline() {
     cfg.censorship.mask_proxy_protocol = 0;
     cfg.censorship.alpn_enforce = true;
     cfg.access.ignore_time_skew = true;
-    cfg.access
-        .users
-        .insert("user".to_string(), "66666666666666666666666666666666".to_string());
+    cfg.access.users.insert(
+        "user".to_string(),
+        "66666666666666666666666666666666".to_string(),
+    );
 
     let config = Arc::new(cfg);
     let stats = Arc::new(Stats::new());
@@ -1654,9 +1698,10 @@ async fn invalid_hmac_tls_probe_is_masked_through_client_pipeline() {
     cfg.censorship.mask_port = backend_addr.port();
     cfg.censorship.mask_proxy_protocol = 0;
     cfg.access.ignore_time_skew = true;
-    cfg.access
-        .users
-        .insert("user".to_string(), "77777777777777777777777777777777".to_string());
+    cfg.access.users.insert(
+        "user".to_string(),
+        "77777777777777777777777777777777".to_string(),
+    );
 
     let config = Arc::new(cfg);
     let stats = Arc::new(Stats::new());
@@ -1751,9 +1796,10 @@ async fn burst_invalid_tls_probes_are_masked_verbatim() {
         cfg.censorship.mask_port = backend_addr.port();
         cfg.censorship.mask_proxy_protocol = 0;
         cfg.access.ignore_time_skew = true;
-        cfg.access
-            .users
-            .insert("user".to_string(), "88888888888888888888888888888888".to_string());
+        cfg.access.users.insert(
+            "user".to_string(),
+            "88888888888888888888888888888888".to_string(),
+        );
 
         let config = Arc::new(cfg);
         let stats = Arc::new(Stats::new());
@@ -1981,10 +2027,7 @@ async fn zero_tcp_limit_rejects_without_ip_or_counter_side_effects() {
 async fn check_user_limits_static_success_does_not_leak_counter_or_ip_reservation() {
     let user = "check-helper-user";
     let mut config = ProxyConfig::default();
-    config
-        .access
-        .user_max_tcp_conns
-        .insert(user.to_string(), 1);
+    config.access.user_max_tcp_conns.insert(user.to_string(), 1);
 
     let stats = Stats::new();
     let ip_tracker = UserIpTracker::new();
@@ -1998,7 +2041,10 @@ async fn check_user_limits_static_success_does_not_leak_counter_or_ip_reservatio
         &ip_tracker,
     )
     .await;
-    assert!(first.is_ok(), "first check-only limit validation must succeed");
+    assert!(
+        first.is_ok(),
+        "first check-only limit validation must succeed"
+    );
 
     let second = RunningClientHandler::check_user_limits_static(
         user,
@@ -2008,7 +2054,10 @@ async fn check_user_limits_static_success_does_not_leak_counter_or_ip_reservatio
         &ip_tracker,
     )
     .await;
-    assert!(second.is_ok(), "second check-only validation must not fail from leaked state");
+    assert!(
+        second.is_ok(),
+        "second check-only validation must not fail from leaked state"
+    );
     assert_eq!(stats.get_user_curr_connects(user), 0);
     assert_eq!(ip_tracker.get_active_ip_count(user).await, 0);
 }
@@ -2017,10 +2066,7 @@ async fn check_user_limits_static_success_does_not_leak_counter_or_ip_reservatio
 async fn stress_check_user_limits_static_success_never_leaks_state() {
     let user = "check-helper-stress-user";
     let mut config = ProxyConfig::default();
-    config
-        .access
-        .user_max_tcp_conns
-        .insert(user.to_string(), 1);
+    config.access.user_max_tcp_conns.insert(user.to_string(), 1);
 
     let stats = Stats::new();
     let ip_tracker = UserIpTracker::new();
@@ -2039,7 +2085,10 @@ async fn stress_check_user_limits_static_success_never_leaks_state() {
             &ip_tracker,
         )
         .await;
-        assert!(result.is_ok(), "check-only helper must remain leak-free under stress");
+        assert!(
+            result.is_ok(),
+            "check-only helper must remain leak-free under stress"
+        );
     }
 
     assert_eq!(
@@ -2090,11 +2139,7 @@ async fn concurrent_distinct_ip_rejections_rollback_user_counter_without_leak() 
                 41000 + i as u16,
             );
             let result = RunningClientHandler::acquire_user_connection_reservation_static(
-                user,
-                &config,
-                stats,
-                peer,
-                ip_tracker,
+                user, &config, stats, peer, ip_tracker,
             )
             .await;
             assert!(matches!(
@@ -2130,10 +2175,7 @@ async fn explicit_reservation_release_cleans_user_and_ip_immediately() {
     let peer_addr: SocketAddr = "198.51.100.240:50002".parse().unwrap();
 
     let mut config = ProxyConfig::default();
-    config
-        .access
-        .user_max_tcp_conns
-        .insert(user.to_string(), 4);
+    config.access.user_max_tcp_conns.insert(user.to_string(), 4);
 
     let stats = Arc::new(Stats::new());
     let ip_tracker = Arc::new(UserIpTracker::new());
@@ -2171,10 +2213,7 @@ async fn explicit_reservation_release_does_not_double_decrement_on_drop() {
     let peer_addr: SocketAddr = "198.51.100.241:50003".parse().unwrap();
 
     let mut config = ProxyConfig::default();
-    config
-        .access
-        .user_max_tcp_conns
-        .insert(user.to_string(), 4);
+    config.access.user_max_tcp_conns.insert(user.to_string(), 4);
 
     let stats = Arc::new(Stats::new());
     let ip_tracker = Arc::new(UserIpTracker::new());
@@ -2204,10 +2243,7 @@ async fn drop_fallback_eventually_cleans_user_and_ip_reservation() {
     let peer_addr: SocketAddr = "198.51.100.242:50004".parse().unwrap();
 
     let mut config = ProxyConfig::default();
-    config
-        .access
-        .user_max_tcp_conns
-        .insert(user.to_string(), 4);
+    config.access.user_max_tcp_conns.insert(user.to_string(), 4);
 
     let stats = Arc::new(Stats::new());
     let ip_tracker = Arc::new(UserIpTracker::new());
@@ -2248,10 +2284,7 @@ async fn explicit_release_allows_immediate_cross_ip_reacquire_under_limit() {
     let peer2: SocketAddr = "198.51.100.244:50006".parse().unwrap();
 
     let mut config = ProxyConfig::default();
-    config
-        .access
-        .user_max_tcp_conns
-        .insert(user.to_string(), 4);
+    config.access.user_max_tcp_conns.insert(user.to_string(), 4);
 
     let stats = Arc::new(Stats::new());
     let ip_tracker = Arc::new(UserIpTracker::new());
@@ -2473,8 +2506,14 @@ async fn parallel_users_abort_release_isolation_preserves_independent_cleanup() 
     let user_b = "abort-isolation-b";
 
     let mut config = ProxyConfig::default();
-    config.access.user_max_tcp_conns.insert(user_a.to_string(), 64);
-    config.access.user_max_tcp_conns.insert(user_b.to_string(), 64);
+    config
+        .access
+        .user_max_tcp_conns
+        .insert(user_a.to_string(), 64);
+    config
+        .access
+        .user_max_tcp_conns
+        .insert(user_b.to_string(), 64);
 
     let stats = Arc::new(Stats::new());
     let ip_tracker = Arc::new(UserIpTracker::new());
@@ -2595,10 +2634,7 @@ async fn relay_connect_error_releases_user_and_ip_before_return() {
     let ip_tracker = Arc::new(UserIpTracker::new());
 
     let mut config = ProxyConfig::default();
-    config
-        .access
-        .user_max_tcp_conns
-        .insert(user.to_string(), 1);
+    config.access.user_max_tcp_conns.insert(user.to_string(), 1);
     config
         .dc_overrides
         .insert("2".to_string(), vec![format!("127.0.0.1:{dead_port}")]);
@@ -2661,7 +2697,10 @@ async fn relay_connect_error_releases_user_and_ip_before_return() {
     )
     .await;
 
-    assert!(result.is_err(), "relay must fail when upstream DC is unreachable");
+    assert!(
+        result.is_err(),
+        "relay must fail when upstream DC is unreachable"
+    );
     assert_eq!(
         stats.get_user_curr_connects(user),
         0,
@@ -2680,10 +2719,7 @@ async fn mixed_release_and_drop_same_ip_preserves_counter_correctness() {
     let peer_addr: SocketAddr = "198.51.100.246:50008".parse().unwrap();
 
     let mut config = ProxyConfig::default();
-    config
-        .access
-        .user_max_tcp_conns
-        .insert(user.to_string(), 8);
+    config.access.user_max_tcp_conns.insert(user.to_string(), 8);
 
     let stats = Arc::new(Stats::new());
     let ip_tracker = Arc::new(UserIpTracker::new());
@@ -2743,10 +2779,7 @@ async fn drop_one_of_two_same_ip_reservations_keeps_ip_active() {
     let peer_addr: SocketAddr = "198.51.100.247:50009".parse().unwrap();
 
     let mut config = ProxyConfig::default();
-    config
-        .access
-        .user_max_tcp_conns
-        .insert(user.to_string(), 8);
+    config.access.user_max_tcp_conns.insert(user.to_string(), 8);
 
     let stats = Arc::new(Stats::new());
     let ip_tracker = Arc::new(UserIpTracker::new());
@@ -2802,7 +2835,10 @@ async fn drop_one_of_two_same_ip_reservations_keeps_ip_active() {
 #[tokio::test]
 async fn quota_rejection_does_not_reserve_ip_or_trigger_rollback() {
     let mut config = ProxyConfig::default();
-    config.access.user_data_quota.insert("user".to_string(), 1024);
+    config
+        .access
+        .user_data_quota
+        .insert("user".to_string(), 1024);
 
     let stats = Stats::new();
     stats.add_user_octets_from("user", 1024);
@@ -2838,10 +2874,10 @@ async fn quota_rejection_does_not_reserve_ip_or_trigger_rollback() {
 #[tokio::test]
 async fn expired_user_rejection_does_not_reserve_ip_or_increment_curr_connects() {
     let mut config = ProxyConfig::default();
-    config
-        .access
-        .user_expirations
-        .insert("user".to_string(), chrono::Utc::now() - chrono::Duration::seconds(1));
+    config.access.user_expirations.insert(
+        "user".to_string(),
+        chrono::Utc::now() - chrono::Duration::seconds(1),
+    );
 
     let stats = Stats::new();
     let ip_tracker = UserIpTracker::new();
@@ -2870,10 +2906,7 @@ async fn same_ip_second_reservation_succeeds_under_unique_ip_limit_one() {
     let peer_addr: SocketAddr = "198.51.100.248:50010".parse().unwrap();
 
     let mut config = ProxyConfig::default();
-    config
-        .access
-        .user_max_tcp_conns
-        .insert(user.to_string(), 8);
+    config.access.user_max_tcp_conns.insert(user.to_string(), 8);
 
     let stats = Arc::new(Stats::new());
     let ip_tracker = Arc::new(UserIpTracker::new());
@@ -2914,10 +2947,7 @@ async fn second_distinct_ip_is_rejected_under_unique_ip_limit_one() {
     let peer2: SocketAddr = "198.51.100.250:50012".parse().unwrap();
 
     let mut config = ProxyConfig::default();
-    config
-        .access
-        .user_max_tcp_conns
-        .insert(user.to_string(), 8);
+    config.access.user_max_tcp_conns.insert(user.to_string(), 8);
 
     let stats = Arc::new(Stats::new());
     let ip_tracker = Arc::new(UserIpTracker::new());
@@ -2958,10 +2988,7 @@ async fn cross_thread_drop_uses_captured_runtime_for_ip_cleanup() {
     let peer_addr: SocketAddr = "198.51.100.251:50013".parse().unwrap();
 
     let mut config = ProxyConfig::default();
-    config
-        .access
-        .user_max_tcp_conns
-        .insert(user.to_string(), 8);
+    config.access.user_max_tcp_conns.insert(user.to_string(), 8);
 
     let stats = Arc::new(Stats::new());
     let ip_tracker = Arc::new(UserIpTracker::new());
@@ -3005,10 +3032,7 @@ async fn immediate_reacquire_after_cross_thread_drop_succeeds() {
     let peer_addr: SocketAddr = "198.51.100.252:50014".parse().unwrap();
 
     let mut config = ProxyConfig::default();
-    config
-        .access
-        .user_max_tcp_conns
-        .insert(user.to_string(), 1);
+    config.access.user_max_tcp_conns.insert(user.to_string(), 1);
 
     let stats = Arc::new(Stats::new());
     let ip_tracker = Arc::new(UserIpTracker::new());
@@ -3043,11 +3067,7 @@ async fn immediate_reacquire_after_cross_thread_drop_succeeds() {
     .expect("cross-thread cleanup must settle before reacquire check");
 
     let reacquire = RunningClientHandler::acquire_user_connection_reservation_static(
-        user,
-        &config,
-        stats,
-        peer_addr,
-        ip_tracker,
+        user, &config, stats, peer_addr, ip_tracker,
     )
     .await;
     assert!(
@@ -3113,10 +3133,7 @@ async fn concurrent_limit_rejections_from_mixed_ips_leave_no_ip_footprint() {
         .get_recent_ips_for_users(&["user".to_string()])
         .await;
     assert!(
-        recent
-            .get("user")
-            .map(|ips| ips.is_empty())
-            .unwrap_or(true),
+        recent.get("user").map(|ips| ips.is_empty()).unwrap_or(true),
         "Concurrent rejected attempts must not leave recent IP footprint"
     );
 
@@ -3150,11 +3167,7 @@ async fn atomic_limit_gate_allows_only_one_concurrent_acquire() {
                 30000 + i,
             );
             RunningClientHandler::acquire_user_connection_reservation_static(
-                "user",
-                &config,
-                stats,
-                peer,
-                ip_tracker,
+                "user", &config, stats, peer, ip_tracker,
             )
             .await
             .ok()
@@ -3769,9 +3782,10 @@ async fn tls_record_len_16384_is_accepted_in_generic_stream_pipeline() {
     cfg.censorship.mask_port = backend_addr.port();
     cfg.censorship.mask_proxy_protocol = 0;
     cfg.access.ignore_time_skew = true;
-    cfg.access
-        .users
-        .insert("user".to_string(), "55555555555555555555555555555555".to_string());
+    cfg.access.users.insert(
+        "user".to_string(),
+        "55555555555555555555555555555555".to_string(),
+    );
 
     let config = Arc::new(cfg);
     let stats = Arc::new(Stats::new());
@@ -3824,7 +3838,10 @@ async fn tls_record_len_16384_is_accepted_in_generic_stream_pipeline() {
     client_side.write_all(&client_hello).await.unwrap();
     let mut record_header = [0u8; 5];
     client_side.read_exact(&mut record_header).await.unwrap();
-    assert_eq!(record_header[0], 0x16, "Valid max-length ClientHello must be accepted");
+    assert_eq!(
+        record_header[0], 0x16,
+        "Valid max-length ClientHello must be accepted"
+    );
 
     drop(client_side);
     let handler_result = tokio::time::timeout(Duration::from_secs(3), handler)
@@ -3865,9 +3882,10 @@ async fn tls_record_len_16384_is_accepted_in_client_handler_pipeline() {
     cfg.censorship.mask_port = backend_addr.port();
     cfg.censorship.mask_proxy_protocol = 0;
     cfg.access.ignore_time_skew = true;
-    cfg.access
-        .users
-        .insert("user".to_string(), "66666666666666666666666666666666".to_string());
+    cfg.access.users.insert(
+        "user".to_string(),
+        "66666666666666666666666666666666".to_string(),
+    );
 
     let config = Arc::new(cfg);
     let stats = Arc::new(Stats::new());
@@ -3938,7 +3956,10 @@ async fn tls_record_len_16384_is_accepted_in_client_handler_pipeline() {
 
     let mut record_header = [0u8; 5];
     client.read_exact(&mut record_header).await.unwrap();
-    assert_eq!(record_header[0], 0x16, "Valid max-length ClientHello must be accepted");
+    assert_eq!(
+        record_header[0], 0x16,
+        "Valid max-length ClientHello must be accepted"
+    );
 
     drop(client);
 
@@ -3947,7 +3968,8 @@ async fn tls_record_len_16384_is_accepted_in_client_handler_pipeline() {
         .unwrap()
         .unwrap();
 
-    let no_mask_connect = tokio::time::timeout(Duration::from_millis(250), mask_listener.accept()).await;
+    let no_mask_connect =
+        tokio::time::timeout(Duration::from_millis(250), mask_listener.accept()).await;
     assert!(
         no_mask_connect.is_err(),
         "Valid max-length ClientHello must not trigger mask fallback in ClientHandler path"
@@ -4004,11 +4026,7 @@ async fn burst_acquire_distinct_ips(
                 55000 + i,
             );
             RunningClientHandler::acquire_user_connection_reservation_static(
-                user,
-                &config,
-                stats,
-                peer,
-                ip_tracker,
+                user, &config, stats, peer, ip_tracker,
             )
             .await
         });
@@ -4190,11 +4208,7 @@ async fn cross_thread_drop_storm_then_parallel_reacquire_wave_has_no_leak() {
                 54000 + i,
             );
             RunningClientHandler::acquire_user_connection_reservation_static(
-                user,
-                &config,
-                stats,
-                peer,
-                ip_tracker,
+                user, &config, stats, peer, ip_tracker,
             )
             .await
         });
@@ -4228,10 +4242,7 @@ async fn cross_thread_drop_storm_then_parallel_reacquire_wave_has_no_leak() {
 async fn scheduled_near_limit_and_burst_windows_preserve_admission_invariants() {
     let user: &'static str = "scheduled-attack-user";
     let mut config = ProxyConfig::default();
-    config
-        .access
-        .user_max_tcp_conns
-        .insert(user.to_string(), 6);
+    config.access.user_max_tcp_conns.insert(user.to_string(), 6);
 
     let config = Arc::new(config);
     let stats = Arc::new(Stats::new());
@@ -4240,7 +4251,10 @@ async fn scheduled_near_limit_and_burst_windows_preserve_admission_invariants() 
 
     let mut base = Vec::new();
     for i in 0..5u16 {
-        let peer = SocketAddr::new(IpAddr::V4(std::net::Ipv4Addr::new(198, 51, 130, 1)), 56000 + i);
+        let peer = SocketAddr::new(
+            IpAddr::V4(std::net::Ipv4Addr::new(198, 51, 130, 1)),
+            56000 + i,
+        );
         let reservation = RunningClientHandler::acquire_user_connection_reservation_static(
             user,
             &config,
@@ -4288,15 +4302,8 @@ async fn scheduled_near_limit_and_burst_windows_preserve_admission_invariants() 
     .await
     .expect("window cleanup must settle to expected occupancy");
 
-    let (wave2_success, wave2_fail) = burst_acquire_distinct_ips(
-        user,
-        config,
-        stats.clone(),
-        ip_tracker.clone(),
-        132,
-        32,
-    )
-    .await;
+    let (wave2_success, wave2_fail) =
+        burst_acquire_distinct_ips(user, config, stats.clone(), ip_tracker.clone(), 132, 32).await;
     assert_eq!(wave2_success.len(), 1);
     assert_eq!(wave2_fail, 31);
     assert_eq!(stats.get_user_curr_connects(user), 5);

@@ -308,52 +308,228 @@ macro_rules! expect_accept {
     };
 }
 
-expect_reject!(appdata_zero_len_must_be_rejected, TLS_RECORD_APPLICATION, TLS_VERSION, 0);
-expect_accept!(appdata_one_len_is_accepted, TLS_RECORD_APPLICATION, TLS_VERSION, 1);
-expect_accept!(appdata_small_len_is_accepted, TLS_RECORD_APPLICATION, TLS_VERSION, 32);
-expect_accept!(appdata_medium_len_is_accepted, TLS_RECORD_APPLICATION, TLS_VERSION, 1024);
-expect_accept!(appdata_plaintext_limit_is_accepted, TLS_RECORD_APPLICATION, TLS_VERSION, MAX_TLS_PLAINTEXT_SIZE as u16);
-expect_accept!(appdata_ciphertext_limit_is_accepted, TLS_RECORD_APPLICATION, TLS_VERSION, MAX_TLS_CIPHERTEXT_SIZE as u16);
-expect_reject!(appdata_ciphertext_plus_one_must_be_rejected, TLS_RECORD_APPLICATION, TLS_VERSION, (MAX_TLS_CIPHERTEXT_SIZE as u16) + 1);
+expect_reject!(
+    appdata_zero_len_must_be_rejected,
+    TLS_RECORD_APPLICATION,
+    TLS_VERSION,
+    0
+);
+expect_accept!(
+    appdata_one_len_is_accepted,
+    TLS_RECORD_APPLICATION,
+    TLS_VERSION,
+    1
+);
+expect_accept!(
+    appdata_small_len_is_accepted,
+    TLS_RECORD_APPLICATION,
+    TLS_VERSION,
+    32
+);
+expect_accept!(
+    appdata_medium_len_is_accepted,
+    TLS_RECORD_APPLICATION,
+    TLS_VERSION,
+    1024
+);
+expect_accept!(
+    appdata_plaintext_limit_is_accepted,
+    TLS_RECORD_APPLICATION,
+    TLS_VERSION,
+    MAX_TLS_PLAINTEXT_SIZE as u16
+);
+expect_accept!(
+    appdata_ciphertext_limit_is_accepted,
+    TLS_RECORD_APPLICATION,
+    TLS_VERSION,
+    MAX_TLS_CIPHERTEXT_SIZE as u16
+);
+expect_reject!(
+    appdata_ciphertext_plus_one_must_be_rejected,
+    TLS_RECORD_APPLICATION,
+    TLS_VERSION,
+    (MAX_TLS_CIPHERTEXT_SIZE as u16) + 1
+);
 
-expect_reject!(appdata_tls10_header_len_one_must_be_rejected, TLS_RECORD_APPLICATION, [0x03, 0x01], 1);
-expect_reject!(appdata_tls10_header_medium_must_be_rejected, TLS_RECORD_APPLICATION, [0x03, 0x01], 1024);
-expect_reject!(appdata_tls10_header_ciphertext_limit_must_be_rejected, TLS_RECORD_APPLICATION, [0x03, 0x01], MAX_TLS_CIPHERTEXT_SIZE as u16);
+expect_reject!(
+    appdata_tls10_header_len_one_must_be_rejected,
+    TLS_RECORD_APPLICATION,
+    [0x03, 0x01],
+    1
+);
+expect_reject!(
+    appdata_tls10_header_medium_must_be_rejected,
+    TLS_RECORD_APPLICATION,
+    [0x03, 0x01],
+    1024
+);
+expect_reject!(
+    appdata_tls10_header_ciphertext_limit_must_be_rejected,
+    TLS_RECORD_APPLICATION,
+    [0x03, 0x01],
+    MAX_TLS_CIPHERTEXT_SIZE as u16
+);
 
-expect_reject!(ccs_tls10_header_len_one_must_be_rejected, TLS_RECORD_CHANGE_CIPHER, [0x03, 0x01], 1);
-expect_reject!(ccs_tls10_header_len_zero_must_be_rejected, TLS_RECORD_CHANGE_CIPHER, [0x03, 0x01], 0);
-expect_reject!(ccs_tls10_header_len_two_must_be_rejected, TLS_RECORD_CHANGE_CIPHER, [0x03, 0x01], 2);
+expect_reject!(
+    ccs_tls10_header_len_one_must_be_rejected,
+    TLS_RECORD_CHANGE_CIPHER,
+    [0x03, 0x01],
+    1
+);
+expect_reject!(
+    ccs_tls10_header_len_zero_must_be_rejected,
+    TLS_RECORD_CHANGE_CIPHER,
+    [0x03, 0x01],
+    0
+);
+expect_reject!(
+    ccs_tls10_header_len_two_must_be_rejected,
+    TLS_RECORD_CHANGE_CIPHER,
+    [0x03, 0x01],
+    2
+);
 
-expect_reject!(alert_tls10_header_len_two_must_be_rejected, TLS_RECORD_ALERT, [0x03, 0x01], 2);
-expect_reject!(alert_tls10_header_len_one_must_be_rejected, TLS_RECORD_ALERT, [0x03, 0x01], 1);
-expect_reject!(alert_tls10_header_len_three_must_be_rejected, TLS_RECORD_ALERT, [0x03, 0x01], 3);
+expect_reject!(
+    alert_tls10_header_len_two_must_be_rejected,
+    TLS_RECORD_ALERT,
+    [0x03, 0x01],
+    2
+);
+expect_reject!(
+    alert_tls10_header_len_one_must_be_rejected,
+    TLS_RECORD_ALERT,
+    [0x03, 0x01],
+    1
+);
+expect_reject!(
+    alert_tls10_header_len_three_must_be_rejected,
+    TLS_RECORD_ALERT,
+    [0x03, 0x01],
+    3
+);
 
-expect_accept!(handshake_tls10_header_min_len_is_accepted, TLS_RECORD_HANDSHAKE, [0x03, 0x01], 4);
-expect_accept!(handshake_tls10_header_plaintext_limit_is_accepted, TLS_RECORD_HANDSHAKE, [0x03, 0x01], MAX_TLS_PLAINTEXT_SIZE as u16);
-expect_reject!(handshake_tls10_header_too_small_must_be_rejected, TLS_RECORD_HANDSHAKE, [0x03, 0x01], 3);
-expect_reject!(handshake_tls10_header_too_large_must_be_rejected, TLS_RECORD_HANDSHAKE, [0x03, 0x01], (MAX_TLS_PLAINTEXT_SIZE as u16) + 1);
+expect_accept!(
+    handshake_tls10_header_min_len_is_accepted,
+    TLS_RECORD_HANDSHAKE,
+    [0x03, 0x01],
+    4
+);
+expect_accept!(
+    handshake_tls10_header_plaintext_limit_is_accepted,
+    TLS_RECORD_HANDSHAKE,
+    [0x03, 0x01],
+    MAX_TLS_PLAINTEXT_SIZE as u16
+);
+expect_reject!(
+    handshake_tls10_header_too_small_must_be_rejected,
+    TLS_RECORD_HANDSHAKE,
+    [0x03, 0x01],
+    3
+);
+expect_reject!(
+    handshake_tls10_header_too_large_must_be_rejected,
+    TLS_RECORD_HANDSHAKE,
+    [0x03, 0x01],
+    (MAX_TLS_PLAINTEXT_SIZE as u16) + 1
+);
 
-expect_reject!(unknown_type_tls13_zero_must_be_rejected, 0x00, TLS_VERSION, 0);
-expect_reject!(unknown_type_tls13_small_must_be_rejected, 0x13, TLS_VERSION, 32);
-expect_reject!(unknown_type_tls13_large_must_be_rejected, 0xfe, TLS_VERSION, MAX_TLS_CIPHERTEXT_SIZE as u16);
-expect_reject!(unknown_type_tls10_small_must_be_rejected, 0x13, [0x03, 0x01], 32);
+expect_reject!(
+    unknown_type_tls13_zero_must_be_rejected,
+    0x00,
+    TLS_VERSION,
+    0
+);
+expect_reject!(
+    unknown_type_tls13_small_must_be_rejected,
+    0x13,
+    TLS_VERSION,
+    32
+);
+expect_reject!(
+    unknown_type_tls13_large_must_be_rejected,
+    0xfe,
+    TLS_VERSION,
+    MAX_TLS_CIPHERTEXT_SIZE as u16
+);
+expect_reject!(
+    unknown_type_tls10_small_must_be_rejected,
+    0x13,
+    [0x03, 0x01],
+    32
+);
 
-expect_reject!(appdata_invalid_version_0302_must_be_rejected, TLS_RECORD_APPLICATION, [0x03, 0x02], 128);
-expect_reject!(handshake_invalid_version_0302_must_be_rejected, TLS_RECORD_HANDSHAKE, [0x03, 0x02], 128);
-expect_reject!(alert_invalid_version_0302_must_be_rejected, TLS_RECORD_ALERT, [0x03, 0x02], 2);
-expect_reject!(ccs_invalid_version_0302_must_be_rejected, TLS_RECORD_CHANGE_CIPHER, [0x03, 0x02], 1);
+expect_reject!(
+    appdata_invalid_version_0302_must_be_rejected,
+    TLS_RECORD_APPLICATION,
+    [0x03, 0x02],
+    128
+);
+expect_reject!(
+    handshake_invalid_version_0302_must_be_rejected,
+    TLS_RECORD_HANDSHAKE,
+    [0x03, 0x02],
+    128
+);
+expect_reject!(
+    alert_invalid_version_0302_must_be_rejected,
+    TLS_RECORD_ALERT,
+    [0x03, 0x02],
+    2
+);
+expect_reject!(
+    ccs_invalid_version_0302_must_be_rejected,
+    TLS_RECORD_CHANGE_CIPHER,
+    [0x03, 0x02],
+    1
+);
 
-expect_reject!(appdata_invalid_version_0304_must_be_rejected, TLS_RECORD_APPLICATION, [0x03, 0x04], 128);
-expect_reject!(handshake_invalid_version_0304_must_be_rejected, TLS_RECORD_HANDSHAKE, [0x03, 0x04], 128);
-expect_reject!(alert_invalid_version_0304_must_be_rejected, TLS_RECORD_ALERT, [0x03, 0x04], 2);
-expect_reject!(ccs_invalid_version_0304_must_be_rejected, TLS_RECORD_CHANGE_CIPHER, [0x03, 0x04], 1);
+expect_reject!(
+    appdata_invalid_version_0304_must_be_rejected,
+    TLS_RECORD_APPLICATION,
+    [0x03, 0x04],
+    128
+);
+expect_reject!(
+    handshake_invalid_version_0304_must_be_rejected,
+    TLS_RECORD_HANDSHAKE,
+    [0x03, 0x04],
+    128
+);
+expect_reject!(
+    alert_invalid_version_0304_must_be_rejected,
+    TLS_RECORD_ALERT,
+    [0x03, 0x04],
+    2
+);
+expect_reject!(
+    ccs_invalid_version_0304_must_be_rejected,
+    TLS_RECORD_CHANGE_CIPHER,
+    [0x03, 0x04],
+    1
+);
 
-expect_accept!(handshake_tls13_len_5_is_accepted, TLS_RECORD_HANDSHAKE, TLS_VERSION, 5);
-expect_accept!(appdata_tls13_len_16385_is_accepted, TLS_RECORD_APPLICATION, TLS_VERSION, (MAX_TLS_PLAINTEXT_SIZE as u16) + 1);
+expect_accept!(
+    handshake_tls13_len_5_is_accepted,
+    TLS_RECORD_HANDSHAKE,
+    TLS_VERSION,
+    5
+);
+expect_accept!(
+    appdata_tls13_len_16385_is_accepted,
+    TLS_RECORD_APPLICATION,
+    TLS_VERSION,
+    (MAX_TLS_PLAINTEXT_SIZE as u16) + 1
+);
 
 #[test]
 fn matrix_version_policy_is_strict_and_deterministic() {
-    let versions = [[0x03, 0x01], TLS_VERSION, [0x03, 0x02], [0x03, 0x04], [0x00, 0x00]];
+    let versions = [
+        [0x03, 0x01],
+        TLS_VERSION,
+        [0x03, 0x02],
+        [0x03, 0x04],
+        [0x00, 0x00],
+    ];
     let record_types = [
         TLS_RECORD_APPLICATION,
         TLS_RECORD_CHANGE_CIPHER,
@@ -389,22 +565,62 @@ fn matrix_version_policy_is_strict_and_deterministic() {
 
 #[test]
 fn appdata_partition_property_holds_for_all_u16_edges() {
-    for len in [0u16, 1, 2, 3, 64, 255, 1024, 4096, 8192, 16_384, 16_385, 16_640, 16_641, u16::MAX] {
+    for len in [
+        0u16,
+        1,
+        2,
+        3,
+        64,
+        255,
+        1024,
+        4096,
+        8192,
+        16_384,
+        16_385,
+        16_640,
+        16_641,
+        u16::MAX,
+    ] {
         let accepted = validates(TLS_RECORD_APPLICATION, TLS_VERSION, len);
         let expected = len >= 1 && usize::from(len) <= MAX_TLS_CIPHERTEXT_SIZE;
-        assert_eq!(accepted, expected, "unexpected appdata decision for len={len}");
+        assert_eq!(
+            accepted, expected,
+            "unexpected appdata decision for len={len}"
+        );
     }
 }
 
 #[test]
 fn handshake_partition_property_holds_for_all_u16_edges() {
-    for len in [0u16, 1, 2, 3, 4, 5, 64, 255, 1024, 4096, 8192, 16_383, 16_384, 16_385, u16::MAX] {
+    for len in [
+        0u16,
+        1,
+        2,
+        3,
+        4,
+        5,
+        64,
+        255,
+        1024,
+        4096,
+        8192,
+        16_383,
+        16_384,
+        16_385,
+        u16::MAX,
+    ] {
         let accepted_tls13 = validates(TLS_RECORD_HANDSHAKE, TLS_VERSION, len);
         let accepted_tls10 = validates(TLS_RECORD_HANDSHAKE, [0x03, 0x01], len);
         let expected = (4..=MAX_TLS_PLAINTEXT_SIZE).contains(&usize::from(len));
 
-        assert_eq!(accepted_tls13, expected, "TLS1.3 handshake mismatch for len={len}");
-        assert_eq!(accepted_tls10, expected, "TLS1.0 compat handshake mismatch for len={len}");
+        assert_eq!(
+            accepted_tls13, expected,
+            "TLS1.3 handshake mismatch for len={len}"
+        );
+        assert_eq!(
+            accepted_tls10, expected,
+            "TLS1.0 compat handshake mismatch for len={len}"
+        );
     }
 }
 
@@ -419,14 +635,24 @@ fn control_record_exact_lengths_are_enforced_under_fuzzed_lengths() {
         let alert_ok = validates(TLS_RECORD_ALERT, TLS_VERSION, len);
 
         assert_eq!(ccs_ok, len == 1, "ccs length gate mismatch for len={len}");
-        assert_eq!(alert_ok, len == 2, "alert length gate mismatch for len={len}");
+        assert_eq!(
+            alert_ok,
+            len == 2,
+            "alert length gate mismatch for len={len}"
+        );
     }
 }
 
 #[test]
 fn unknown_record_types_never_validate_under_supported_versions() {
     for record_type in 0u8..=255 {
-        if matches!(record_type, TLS_RECORD_APPLICATION | TLS_RECORD_CHANGE_CIPHER | TLS_RECORD_ALERT | TLS_RECORD_HANDSHAKE) {
+        if matches!(
+            record_type,
+            TLS_RECORD_APPLICATION
+                | TLS_RECORD_CHANGE_CIPHER
+                | TLS_RECORD_ALERT
+                | TLS_RECORD_HANDSHAKE
+        ) {
             continue;
         }
 
@@ -458,9 +684,15 @@ async fn reader_rejects_tls10_appdata_header_before_payload_processing() {
 #[tokio::test]
 async fn reader_rejects_zero_len_appdata_record() {
     let (mut tx, rx) = tokio::io::duplex(128);
-    tx.write_all(&[TLS_RECORD_APPLICATION, TLS_VERSION[0], TLS_VERSION[1], 0x00, 0x00])
-        .await
-        .unwrap();
+    tx.write_all(&[
+        TLS_RECORD_APPLICATION,
+        TLS_VERSION[0],
+        TLS_VERSION[1],
+        0x00,
+        0x00,
+    ])
+    .await
+    .unwrap();
     tx.shutdown().await.unwrap();
 
     let mut reader = FakeTlsReader::new(rx);
@@ -472,9 +704,16 @@ async fn reader_rejects_zero_len_appdata_record() {
 #[tokio::test]
 async fn reader_accepts_single_byte_tls13_appdata_and_yields_payload() {
     let (mut tx, rx) = tokio::io::duplex(128);
-    tx.write_all(&[TLS_RECORD_APPLICATION, TLS_VERSION[0], TLS_VERSION[1], 0x00, 0x01, 0x5A])
-        .await
-        .unwrap();
+    tx.write_all(&[
+        TLS_RECORD_APPLICATION,
+        TLS_VERSION[0],
+        TLS_VERSION[1],
+        0x00,
+        0x01,
+        0x5A,
+    ])
+    .await
+    .unwrap();
     tx.shutdown().await.unwrap();
 
     let mut reader = FakeTlsReader::new(rx);

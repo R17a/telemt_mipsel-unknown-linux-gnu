@@ -40,9 +40,7 @@ fn subtle_light_fuzz_scope_hint_matches_oracle() {
         };
         !rest.is_empty()
             && rest.len() <= MAX_SCOPE_HINT_LEN
-            && rest
-                .bytes()
-                .all(|b| b.is_ascii_alphanumeric() || b == b'-')
+            && rest.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
     }
 
     let mut state: u64 = 0xC0FF_EE11_D15C_AFE5;
@@ -94,7 +92,10 @@ fn subtle_light_fuzz_dc_resolution_never_panics_and_preserves_port() {
         let dc_idx = (state as i16).wrapping_sub(16_384);
         let resolved = get_dc_addr_static(dc_idx, &cfg).expect("dc resolution must never fail");
 
-        assert_eq!(resolved.port(), crate::protocol::constants::TG_DATACENTER_PORT);
+        assert_eq!(
+            resolved.port(),
+            crate::protocol::constants::TG_DATACENTER_PORT
+        );
         let expect_v6 = cfg.network.prefer == 6 && cfg.network.ipv6.unwrap_or(true);
         assert_eq!(resolved.is_ipv6(), expect_v6);
     }
@@ -166,7 +167,9 @@ async fn subtle_integration_parallel_unique_dcs_log_unique_lines() {
     cfg.general.unknown_dc_log_path = Some(rel_file);
 
     let cfg = Arc::new(cfg);
-    let dcs = [31_901_i16, 31_902, 31_903, 31_904, 31_905, 31_906, 31_907, 31_908];
+    let dcs = [
+        31_901_i16, 31_902, 31_903, 31_904, 31_905, 31_906, 31_907, 31_908,
+    ];
     let mut tasks = Vec::new();
 
     for dc in dcs {

@@ -3,8 +3,8 @@ use crate::error::ProxyError;
 use crate::stats::Stats;
 use crate::stream::BufferPool;
 use std::sync::Arc;
-use tokio::io::{duplex, AsyncRead, AsyncReadExt, AsyncWriteExt};
-use tokio::time::{timeout, Duration};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt, duplex};
+use tokio::time::{Duration, timeout};
 
 async fn read_available<R: AsyncRead + Unpin>(reader: &mut R, budget_ms: u64) -> usize {
     let mut total = 0usize;
@@ -46,7 +46,10 @@ async fn regression_client_chunk_larger_than_remaining_quota_does_not_overshoot_
     ));
 
     // Single chunk attempts to cross remaining budget (4 > 1).
-    client_peer.write_all(&[0x11, 0x22, 0x33, 0x44]).await.unwrap();
+    client_peer
+        .write_all(&[0x11, 0x22, 0x33, 0x44])
+        .await
+        .unwrap();
     client_peer.shutdown().await.unwrap();
 
     let forwarded = read_available(&mut server_peer, 60).await;
@@ -60,7 +63,10 @@ async fn regression_client_chunk_larger_than_remaining_quota_does_not_overshoot_
         forwarded, 0,
         "overflowing C->S chunk must not be forwarded when it exceeds remaining quota"
     );
-    assert!(matches!(relay_result, Err(ProxyError::DataQuotaExceeded { .. })));
+    assert!(matches!(
+        relay_result,
+        Err(ProxyError::DataQuotaExceeded { .. })
+    ));
     assert!(
         stats.get_user_total_octets(user) <= 10,
         "accounted bytes must never exceed quota after overflowing chunk"
@@ -94,7 +100,10 @@ async fn regression_client_exact_remaining_quota_forwards_once_then_hard_cuts_of
     ));
 
     // Exact boundary write should pass once.
-    client_peer.write_all(&[0xAA, 0xBB, 0xCC, 0xDD]).await.unwrap();
+    client_peer
+        .write_all(&[0xAA, 0xBB, 0xCC, 0xDD])
+        .await
+        .unwrap();
 
     let mut exact = [0u8; 4];
     timeout(Duration::from_secs(1), server_peer.read_exact(&mut exact))
@@ -118,7 +127,10 @@ async fn regression_client_exact_remaining_quota_forwards_once_then_hard_cuts_of
         leaked_after, 0,
         "no bytes may pass after exact boundary is consumed"
     );
-    assert!(matches!(relay_result, Err(ProxyError::DataQuotaExceeded { .. })));
+    assert!(matches!(
+        relay_result,
+        Err(ProxyError::DataQuotaExceeded { .. })
+    ));
     assert!(stats.get_user_total_octets(user) <= 10);
 }
 
@@ -171,7 +183,8 @@ async fn stress_parallel_relays_same_user_quota_overflow_never_exceeds_cap() {
                 .expect("stress relay task must not panic");
 
             assert!(
-                relay_result.is_ok() || matches!(relay_result, Err(ProxyError::DataQuotaExceeded { .. })),
+                relay_result.is_ok()
+                    || matches!(relay_result, Err(ProxyError::DataQuotaExceeded { .. })),
                 "stress relay must finish cleanly or with typed quota error"
             );
             forwarded

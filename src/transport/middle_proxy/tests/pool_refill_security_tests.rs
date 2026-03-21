@@ -132,7 +132,8 @@ async fn connectable_endpoints_releases_quarantine_lock_before_sleep() {
     }
 
     let pool_for_task = Arc::clone(&pool);
-    let task = tokio::spawn(async move { pool_for_task.connectable_endpoints_for_test(&[addr]).await });
+    let task =
+        tokio::spawn(async move { pool_for_task.connectable_endpoints_for_test(&[addr]).await });
 
     tokio::time::sleep(Duration::from_millis(10)).await;
 

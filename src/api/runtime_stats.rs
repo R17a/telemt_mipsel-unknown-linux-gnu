@@ -2,8 +2,8 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::config::ApiConfig;
 use crate::stats::Stats;
-use crate::transport::upstream::IpPreference;
 use crate::transport::UpstreamRouteKind;
+use crate::transport::upstream::IpPreference;
 
 use super::ApiShared;
 use super::model::{

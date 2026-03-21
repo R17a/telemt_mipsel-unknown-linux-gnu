@@ -230,7 +230,10 @@ async fn negative_unknown_writer_removal_is_noop() {
 
     assert!(pool.writers.read().await.is_empty());
     assert_eq!(pool.conn_count.load(Ordering::Relaxed), 0);
-    assert_eq!(pool.stats.get_me_endpoint_quarantine_total(), before_quarantine);
+    assert_eq!(
+        pool.stats.get_me_endpoint_quarantine_total(),
+        before_quarantine
+    );
 }
 
 #[tokio::test]
@@ -241,7 +244,10 @@ async fn edge_draining_only_detach_rejects_active_writer() {
     insert_writer(&pool, writer_id, 2, addr, false, Instant::now()).await;
 
     let removed = pool.remove_draining_writer_hard_detach(writer_id).await;
-    assert!(!removed, "active writer must not be detached by draining-only path");
+    assert!(
+        !removed,
+        "active writer must not be detached by draining-only path"
+    );
     assert!(current_writer_ids(&pool).await.contains(&writer_id));
     assert_eq!(pool.conn_count.load(Ordering::Relaxed), 1);
 
@@ -324,8 +330,14 @@ async fn light_fuzz_insert_remove_schedule_preserves_pool_invariants() {
         }
 
         let actual_ids = current_writer_ids(&pool).await;
-        assert_eq!(actual_ids, model, "writer-id set must match model under fuzz schedule");
-        assert_eq!(pool.conn_count.load(Ordering::Relaxed) as usize, model.len());
+        assert_eq!(
+            actual_ids, model,
+            "writer-id set must match model under fuzz schedule"
+        );
+        assert_eq!(
+            pool.conn_count.load(Ordering::Relaxed) as usize,
+            model.len()
+        );
     }
 
     for writer_id in model {
@@ -341,7 +353,12 @@ async fn stress_parallel_duplicate_removals_are_idempotent() {
 
     for writer_id in 1..=48u64 {
         let addr = SocketAddr::new(
-            IpAddr::V4(Ipv4Addr::new(127, 14, (writer_id / 250) as u8, (writer_id % 250) as u8)),
+            IpAddr::V4(Ipv4Addr::new(
+                127,
+                14,
+                (writer_id / 250) as u8,
+                (writer_id % 250) as u8,
+            )),
             5000 + writer_id as u16,
         );
         insert_writer(
@@ -363,7 +380,8 @@ async fn stress_parallel_duplicate_removals_are_idempotent() {
                 if ((writer_id + worker) & 1) == 0 {
                     pool.remove_writer_and_close_clients(writer_id).await;
                 } else {
-                    pool.remove_writer_and_close_clients(100_000 + writer_id).await;
+                    pool.remove_writer_and_close_clients(100_000 + writer_id)
+                        .await;
                 }
             }
         }));

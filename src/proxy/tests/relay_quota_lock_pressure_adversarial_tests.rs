@@ -6,7 +6,7 @@ use dashmap::DashMap;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::time::Duration;
-use tokio::io::{duplex, AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, duplex};
 use tokio::sync::Barrier;
 use tokio::time::Instant;
 
@@ -62,7 +62,10 @@ fn quota_lock_unique_users_materialize_distinct_entries() {
     }
 
     for user in &users {
-        assert!(map.get(user).is_some(), "lock cache must contain entry for {user}");
+        assert!(
+            map.get(user).is_some(),
+            "lock cache must contain entry for {user}"
+        );
     }
 }
 
@@ -160,7 +163,10 @@ fn quota_lock_saturated_same_user_must_not_return_distinct_locks() {
 
     let mut retained = Vec::with_capacity(QUOTA_USER_LOCKS_MAX);
     for idx in 0..QUOTA_USER_LOCKS_MAX {
-        retained.push(quota_user_lock(&format!("quota-saturated-held-{}-{idx}", std::process::id())));
+        retained.push(quota_user_lock(&format!(
+            "quota-saturated-held-{}-{idx}",
+            std::process::id()
+        )));
     }
 
     let overflow_user = format!("quota-saturated-same-user-{}", std::process::id());
@@ -183,7 +189,10 @@ async fn quota_lock_saturation_concurrent_same_user_never_overshoots_quota() {
 
     let mut retained = Vec::with_capacity(QUOTA_USER_LOCKS_MAX);
     for idx in 0..QUOTA_USER_LOCKS_MAX {
-        retained.push(quota_user_lock(&format!("quota-saturated-race-held-{}-{idx}", std::process::id())));
+        retained.push(quota_user_lock(&format!(
+            "quota-saturated-race-held-{}-{idx}",
+            std::process::id()
+        )));
     }
 
     let stats = Arc::new(Stats::new());
@@ -234,7 +243,10 @@ async fn quota_lock_saturation_stress_same_user_never_overshoots_quota() {
 
     let mut retained = Vec::with_capacity(QUOTA_USER_LOCKS_MAX);
     for idx in 0..QUOTA_USER_LOCKS_MAX {
-        retained.push(quota_user_lock(&format!("quota-saturated-stress-held-{}-{idx}", std::process::id())));
+        retained.push(quota_user_lock(&format!(
+            "quota-saturated-stress-held-{}-{idx}",
+            std::process::id()
+        )));
     }
 
     for round in 0..128u32 {
@@ -355,7 +367,8 @@ async fn quota_lock_integration_zero_quota_cuts_off_without_forwarding() {
         .expect("client write must succeed");
 
     let mut probe = [0u8; 1];
-    let forwarded = tokio::time::timeout(Duration::from_millis(80), server_peer.read(&mut probe)).await;
+    let forwarded =
+        tokio::time::timeout(Duration::from_millis(80), server_peer.read(&mut probe)).await;
     if let Ok(Ok(n)) = forwarded {
         assert_eq!(n, 0, "zero quota path must not forward payload bytes");
     }
@@ -392,14 +405,26 @@ async fn quota_lock_integration_no_quota_relays_both_directions_under_burst() {
     let c2s = vec![0xA5; 2048];
     let s2c = vec![0x5A; 1536];
 
-    client_peer.write_all(&c2s).await.expect("client burst write must succeed");
+    client_peer
+        .write_all(&c2s)
+        .await
+        .expect("client burst write must succeed");
     let mut got_c2s = vec![0u8; c2s.len()];
-    server_peer.read_exact(&mut got_c2s).await.expect("server must receive c2s burst");
+    server_peer
+        .read_exact(&mut got_c2s)
+        .await
+        .expect("server must receive c2s burst");
     assert_eq!(got_c2s, c2s);
 
-    server_peer.write_all(&s2c).await.expect("server burst write must succeed");
+    server_peer
+        .write_all(&s2c)
+        .await
+        .expect("server burst write must succeed");
     let mut got_s2c = vec![0u8; s2c.len()];
-    client_peer.read_exact(&mut got_s2c).await.expect("client must receive s2c burst");
+    client_peer
+        .read_exact(&mut got_s2c)
+        .await
+        .expect("client must receive s2c burst");
     assert_eq!(got_s2c, s2c);
 
     drop(client_peer);

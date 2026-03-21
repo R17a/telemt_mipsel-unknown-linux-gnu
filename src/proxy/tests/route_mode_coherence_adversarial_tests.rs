@@ -18,7 +18,10 @@ fn positive_direct_cutover_sets_timestamp_and_snapshot_coherently() {
         .expect("middle->direct must emit cutover");
     let observed = *rx.borrow();
 
-    assert_eq!(observed, emitted, "watch snapshot must match emitted cutover");
+    assert_eq!(
+        observed, emitted,
+        "watch snapshot must match emitted cutover"
+    );
     assert_eq!(observed.mode, RelayRouteMode::Direct);
     assert!(
         runtime.direct_since_epoch_secs().is_some(),
@@ -64,7 +67,10 @@ fn edge_middle_cutover_clears_timestamp() {
         .expect("direct->middle must emit cutover");
     let observed = *rx.borrow();
 
-    assert_eq!(observed, emitted, "watch snapshot must match emitted cutover");
+    assert_eq!(
+        observed, emitted,
+        "watch snapshot must match emitted cutover"
+    );
     assert_eq!(observed.mode, RelayRouteMode::Middle);
     assert!(
         runtime.direct_since_epoch_secs().is_none(),

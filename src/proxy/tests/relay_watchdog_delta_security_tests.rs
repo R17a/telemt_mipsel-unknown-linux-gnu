@@ -44,7 +44,10 @@ fn light_fuzz_mixed_pairs_match_saturating_sub_contract() {
 
         let expected = current.saturating_sub(previous);
         let actual = watchdog_delta(current, previous);
-        assert_eq!(actual, expected, "delta mismatch for ({current}, {previous})");
+        assert_eq!(
+            actual, expected,
+            "delta mismatch for ({current}, {previous})"
+        );
     }
 }
 

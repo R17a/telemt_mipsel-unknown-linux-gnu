@@ -12,7 +12,8 @@ fn common_invalid_override_entries_fallback_to_static_table() {
         vec!["bad-address".to_string(), "still-bad".to_string()],
     );
 
-    let resolved = get_dc_addr_static(2, &cfg).expect("fallback to static table must still resolve");
+    let resolved =
+        get_dc_addr_static(2, &cfg).expect("fallback to static table must still resolve");
     let expected = SocketAddr::new(TG_DATACENTERS_V4[1], TG_DATACENTER_PORT);
     assert_eq!(resolved, expected);
 }
@@ -25,7 +26,8 @@ fn common_prefer_v6_with_only_ipv4_override_uses_override_instead_of_ignoring_it
     cfg.dc_overrides
         .insert("3".to_string(), vec!["203.0.113.203:443".to_string()]);
 
-    let resolved = get_dc_addr_static(3, &cfg).expect("ipv4 override must be used if no ipv6 override exists");
+    let resolved =
+        get_dc_addr_static(3, &cfg).expect("ipv4 override must be used if no ipv6 override exists");
     assert_eq!(resolved, "203.0.113.203:443".parse::<SocketAddr>().unwrap());
 }
 

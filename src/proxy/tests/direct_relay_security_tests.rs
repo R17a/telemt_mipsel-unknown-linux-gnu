@@ -15,7 +15,7 @@ use std::time::Duration;
 use tokio::io::AsyncReadExt;
 use tokio::io::duplex;
 use tokio::net::TcpListener;
-use tokio::time::{timeout, Duration as TokioDuration};
+use tokio::time::{Duration as TokioDuration, timeout};
 
 fn make_crypto_reader<R>(reader: R) -> CryptoReader<R>
 where
@@ -79,7 +79,9 @@ fn unknown_dc_log_respects_distinct_limit() {
 
 #[test]
 fn unknown_dc_log_fails_closed_when_dedup_lock_is_poisoned() {
-    let poisoned = Arc::new(std::sync::Mutex::new(std::collections::HashSet::<i16>::new()));
+    let poisoned = Arc::new(std::sync::Mutex::new(
+        std::collections::HashSet::<i16>::new(),
+    ));
     let poisoned_for_thread = poisoned.clone();
 
     let _ = std::thread::spawn(move || {
@@ -243,7 +245,10 @@ fn unknown_dc_log_path_sanitizer_accepts_safe_relative_path() {
     fs::create_dir_all(&base).expect("temp test directory must be creatable");
 
     let candidate = base.join("unknown-dc.txt");
-    let candidate_relative = format!("target/telemt-unknown-dc-log-{}/unknown-dc.txt", std::process::id());
+    let candidate_relative = format!(
+        "target/telemt-unknown-dc-log-{}/unknown-dc.txt",
+        std::process::id()
+    );
 
     let sanitized = sanitize_unknown_dc_log_path(&candidate_relative)
         .expect("safe relative path with existing parent must be accepted");
@@ -325,7 +330,10 @@ fn unknown_dc_log_path_sanitizer_accepts_symlinked_parent_inside_workspace() {
     let base = std::env::current_dir()
         .expect("cwd must be available")
         .join("target")
-        .join(format!("telemt-unknown-dc-log-symlink-internal-{}", std::process::id()));
+        .join(format!(
+            "telemt-unknown-dc-log-symlink-internal-{}",
+            std::process::id()
+        ));
     let real_parent = base.join("real_parent");
     fs::create_dir_all(&real_parent).expect("real parent dir must be creatable");
 
@@ -354,7 +362,10 @@ fn unknown_dc_log_path_sanitizer_accepts_symlink_parent_escape_as_canonical_path
     let base = std::env::current_dir()
         .expect("cwd must be available")
         .join("target")
-        .join(format!("telemt-unknown-dc-log-symlink-{}", std::process::id()));
+        .join(format!(
+            "telemt-unknown-dc-log-symlink-{}",
+            std::process::id()
+        ));
     fs::create_dir_all(&base).expect("symlink test directory must be creatable");
 
     let symlink_parent = base.join("escape_link");
@@ -382,7 +393,10 @@ fn unknown_dc_log_path_revalidation_rejects_symlinked_target_escape() {
     let base = std::env::current_dir()
         .expect("cwd must be available")
         .join("target")
-        .join(format!("telemt-unknown-dc-target-link-{}", std::process::id()));
+        .join(format!(
+            "telemt-unknown-dc-target-link-{}",
+            std::process::id()
+        ));
     fs::create_dir_all(&base).expect("target-link base must be creatable");
 
     let outside = std::env::temp_dir().join(format!("telemt-outside-{}", std::process::id()));
@@ -445,7 +459,10 @@ fn unknown_dc_open_append_rejects_broken_symlink_target_with_nofollow() {
     let base = std::env::current_dir()
         .expect("cwd must be available")
         .join("target")
-        .join(format!("telemt-unknown-dc-broken-link-{}", std::process::id()));
+        .join(format!(
+            "telemt-unknown-dc-broken-link-{}",
+            std::process::id()
+        ));
     fs::create_dir_all(&base).expect("broken-link base must be creatable");
 
     let linked_target = base.join("unknown-dc.log");
@@ -470,7 +487,10 @@ fn adversarial_unknown_dc_open_append_symlink_flip_never_writes_outside_file() {
     let base = std::env::current_dir()
         .expect("cwd must be available")
         .join("target")
-        .join(format!("telemt-unknown-dc-symlink-flip-{}", std::process::id()));
+        .join(format!(
+            "telemt-unknown-dc-symlink-flip-{}",
+            std::process::id()
+        ));
     fs::create_dir_all(&base).expect("symlink-flip base must be creatable");
 
     let outside = std::env::temp_dir().join(format!(
@@ -530,7 +550,10 @@ fn stress_unknown_dc_open_append_regular_file_preserves_line_integrity() {
     let base = std::env::current_dir()
         .expect("cwd must be available")
         .join("target")
-        .join(format!("telemt-unknown-dc-open-stress-{}", std::process::id()));
+        .join(format!(
+            "telemt-unknown-dc-open-stress-{}",
+            std::process::id()
+        ));
     fs::create_dir_all(&base).expect("stress open base must be creatable");
 
     let target = base.join("unknown-dc.log");
@@ -556,7 +579,10 @@ fn unknown_dc_log_path_revalidation_accepts_regular_existing_target() {
     let base = std::env::current_dir()
         .expect("cwd must be available")
         .join("target")
-        .join(format!("telemt-unknown-dc-safe-target-{}", std::process::id()));
+        .join(format!(
+            "telemt-unknown-dc-safe-target-{}",
+            std::process::id()
+        ));
     fs::create_dir_all(&base).expect("safe target base must be creatable");
 
     let target = base.join("unknown-dc.log");
@@ -566,8 +592,8 @@ fn unknown_dc_log_path_revalidation_accepts_regular_existing_target() {
         "target/telemt-unknown-dc-safe-target-{}/unknown-dc.log",
         std::process::id()
     );
-    let sanitized = sanitize_unknown_dc_log_path(&rel_candidate)
-        .expect("safe candidate must sanitize");
+    let sanitized =
+        sanitize_unknown_dc_log_path(&rel_candidate).expect("safe candidate must sanitize");
     assert!(
         unknown_dc_log_path_is_still_safe(&sanitized),
         "revalidation must allow safe existing regular files"
@@ -579,7 +605,10 @@ fn unknown_dc_log_path_revalidation_rejects_deleted_parent_after_sanitize() {
     let base = std::env::current_dir()
         .expect("cwd must be available")
         .join("target")
-        .join(format!("telemt-unknown-dc-vanish-parent-{}", std::process::id()));
+        .join(format!(
+            "telemt-unknown-dc-vanish-parent-{}",
+            std::process::id()
+        ));
     fs::create_dir_all(&base).expect("vanish-parent base must be creatable");
 
     let rel_candidate = format!(
@@ -604,7 +633,10 @@ fn unknown_dc_log_path_revalidation_rejects_parent_swapped_to_symlink() {
     let parent = std::env::current_dir()
         .expect("cwd must be available")
         .join("target")
-        .join(format!("telemt-unknown-dc-parent-swap-{}", std::process::id()));
+        .join(format!(
+            "telemt-unknown-dc-parent-swap-{}",
+            std::process::id()
+        ));
     fs::create_dir_all(&parent).expect("parent-swap test parent must be creatable");
 
     let rel_candidate = format!(
@@ -633,7 +665,10 @@ fn adversarial_check_then_symlink_flip_is_blocked_by_nofollow_open() {
     let parent = std::env::current_dir()
         .expect("cwd must be available")
         .join("target")
-        .join(format!("telemt-unknown-dc-check-open-race-{}", std::process::id()));
+        .join(format!(
+            "telemt-unknown-dc-check-open-race-{}",
+            std::process::id()
+        ));
     fs::create_dir_all(&parent).expect("check-open-race parent must be creatable");
 
     let target = parent.join("unknown-dc.log");
@@ -642,8 +677,7 @@ fn adversarial_check_then_symlink_flip_is_blocked_by_nofollow_open() {
         "target/telemt-unknown-dc-check-open-race-{}/unknown-dc.log",
         std::process::id()
     );
-    let sanitized = sanitize_unknown_dc_log_path(&rel_candidate)
-        .expect("candidate must sanitize");
+    let sanitized = sanitize_unknown_dc_log_path(&rel_candidate).expect("candidate must sanitize");
 
     assert!(
         unknown_dc_log_path_is_still_safe(&sanitized),
@@ -675,7 +709,10 @@ fn adversarial_parent_swap_after_check_is_blocked_by_anchored_open() {
     let base = std::env::current_dir()
         .expect("cwd must be available")
         .join("target")
-        .join(format!("telemt-unknown-dc-parent-swap-openat-{}", std::process::id()));
+        .join(format!(
+            "telemt-unknown-dc-parent-swap-openat-{}",
+            std::process::id()
+        ));
     fs::create_dir_all(&base).expect("parent-swap-openat base must be creatable");
 
     let rel_candidate = format!(
@@ -708,7 +745,10 @@ fn adversarial_parent_swap_after_check_is_blocked_by_anchored_open() {
         .expect_err("anchored open must fail when parent is swapped to symlink");
     let raw = err.raw_os_error();
     assert!(
-        matches!(raw, Some(libc::ELOOP) | Some(libc::ENOTDIR) | Some(libc::ENOENT)),
+        matches!(
+            raw,
+            Some(libc::ELOOP) | Some(libc::ENOTDIR) | Some(libc::ENOENT)
+        ),
         "anchored open must fail closed on parent swap race, got raw_os_error={raw:?}"
     );
     assert!(
@@ -896,7 +936,10 @@ async fn unknown_dc_symlinked_target_escape_is_not_written_integration() {
     let base = std::env::current_dir()
         .expect("cwd must be available")
         .join("target")
-        .join(format!("telemt-unknown-dc-no-write-link-{}", std::process::id()));
+        .join(format!(
+            "telemt-unknown-dc-no-write-link-{}",
+            std::process::id()
+        ));
     fs::create_dir_all(&base).expect("integration symlink base must be creatable");
 
     let outside = std::env::temp_dir().join(format!(
@@ -1024,11 +1067,17 @@ async fn direct_relay_abort_midflight_releases_route_gauge() {
         }
     })
     .await;
-    assert!(started.is_ok(), "direct relay must increment route gauge before abort");
+    assert!(
+        started.is_ok(),
+        "direct relay must increment route gauge before abort"
+    );
 
     relay_task.abort();
     let joined = relay_task.await;
-    assert!(joined.is_err(), "aborted direct relay task must return join error");
+    assert!(
+        joined.is_err(),
+        "aborted direct relay task must return join error"
+    );
 
     tokio::time::sleep(Duration::from_millis(20)).await;
     assert_eq!(
@@ -1313,15 +1362,22 @@ fn prefer_v6_override_matrix_prefers_matching_family_then_degrades_safely() {
         ],
     );
     let a = get_dc_addr_static(dc_idx, &cfg_a).expect("v6+v4 override set must resolve");
-    assert!(a.is_ipv6(), "prefer_v6 should choose v6 override when present");
+    assert!(
+        a.is_ipv6(),
+        "prefer_v6 should choose v6 override when present"
+    );
 
     let mut cfg_b = ProxyConfig::default();
     cfg_b.network.prefer = 6;
     cfg_b.network.ipv6 = Some(true);
-    cfg_b.dc_overrides
+    cfg_b
+        .dc_overrides
         .insert(dc_idx.to_string(), vec!["203.0.113.91:443".to_string()]);
     let b = get_dc_addr_static(dc_idx, &cfg_b).expect("v4-only override must still resolve");
-    assert!(b.is_ipv4(), "when no v6 override exists, v4 override must be used");
+    assert!(
+        b.is_ipv4(),
+        "when no v6 override exists, v4 override must be used"
+    );
 
     let mut cfg_c = ProxyConfig::default();
     cfg_c.network.prefer = 6;
@@ -1350,7 +1406,8 @@ fn prefer_v6_override_matrix_ignores_invalid_entries_and_keeps_fail_closed_fallb
         ],
     );
 
-    let addr = get_dc_addr_static(dc_idx, &cfg).expect("at least one valid override must keep resolution alive");
+    let addr = get_dc_addr_static(dc_idx, &cfg)
+        .expect("at least one valid override must keep resolution alive");
     assert_eq!(addr, "203.0.113.55:443".parse::<SocketAddr>().unwrap());
 }
 
@@ -1370,7 +1427,10 @@ fn stress_prefer_v6_override_matrix_is_deterministic_under_mixed_inputs() {
 
         let first = get_dc_addr_static(idx, &cfg).expect("first lookup must resolve");
         let second = get_dc_addr_static(idx, &cfg).expect("second lookup must resolve");
-        assert_eq!(first, second, "override resolution must stay deterministic for dc {idx}");
+        assert_eq!(
+            first, second,
+            "override resolution must stay deterministic for dc {idx}"
+        );
         assert!(first.is_ipv6(), "dc {idx}: v6 override should be preferred");
     }
 }
@@ -1379,12 +1439,12 @@ fn stress_prefer_v6_override_matrix_is_deterministic_under_mixed_inputs() {
 async fn negative_direct_relay_dc_connection_refused_fails_fast() {
     let (client_reader_side, _client_writer_side) = duplex(1024);
     let (_client_reader_relay, client_writer_side) = duplex(1024);
-    
+
     let key = [0u8; 32];
     let iv = 0u128;
     let client_reader = CryptoReader::new(client_reader_side, AesCtr::new(&key, iv));
     let client_writer = CryptoWriter::new(client_writer_side, AesCtr::new(&key, iv), 1024);
-    
+
     let stats = Arc::new(Stats::new());
     let buffer_pool = Arc::new(BufferPool::with_config(1024, 1));
     let rng = Arc::new(SecureRandom::new());
@@ -1397,9 +1457,11 @@ async fn negative_direct_relay_dc_connection_refused_fails_fast() {
     drop(listener);
 
     let mut config_with_override = ProxyConfig::default();
-    config_with_override.dc_overrides.insert("1".to_string(), vec![dc_addr.to_string()]);
+    config_with_override
+        .dc_overrides
+        .insert("1".to_string(), vec![dc_addr.to_string()]);
     let config = Arc::new(config_with_override);
-    
+
     let upstream_manager = Arc::new(UpstreamManager::new(
         vec![UpstreamConfig {
             enabled: true,
@@ -1418,7 +1480,7 @@ async fn negative_direct_relay_dc_connection_refused_fails_fast() {
         false,
         stats.clone(),
     ));
-    
+
     let success = HandshakeSuccess {
         user: "test-user".to_string(),
         peer: "127.0.0.1:12345".parse().unwrap(),
@@ -1460,21 +1522,21 @@ async fn negative_direct_relay_dc_connection_refused_fails_fast() {
 async fn adversarial_direct_relay_cutover_integrity() {
     let (client_reader_side, _client_writer_side) = duplex(1024);
     let (_client_reader_relay, client_writer_side) = duplex(1024);
-    
+
     let key = [0u8; 32];
     let iv = 0u128;
     let client_reader = CryptoReader::new(client_reader_side, AesCtr::new(&key, iv));
     let client_writer = CryptoWriter::new(client_writer_side, AesCtr::new(&key, iv), 1024);
-    
+
     let stats = Arc::new(Stats::new());
     let buffer_pool = Arc::new(BufferPool::with_config(1024, 1));
     let rng = Arc::new(SecureRandom::new());
     let route_runtime = RouteRuntimeController::new(RelayRouteMode::Direct);
-    
+
     // Mock upstream server.
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let dc_addr = listener.local_addr().unwrap();
-    
+
     tokio::spawn(async move {
         let (mut stream, _) = listener.accept().await.unwrap();
         // Read handshake nonce.
@@ -1485,9 +1547,11 @@ async fn adversarial_direct_relay_cutover_integrity() {
     });
 
     let mut config_with_override = ProxyConfig::default();
-    config_with_override.dc_overrides.insert("1".to_string(), vec![dc_addr.to_string()]);
+    config_with_override
+        .dc_overrides
+        .insert("1".to_string(), vec![dc_addr.to_string()]);
     let config = Arc::new(config_with_override);
-    
+
     let upstream_manager = Arc::new(UpstreamManager::new(
         vec![UpstreamConfig {
             enabled: true,
@@ -1506,7 +1570,7 @@ async fn adversarial_direct_relay_cutover_integrity() {
         false,
         stats.clone(),
     ));
-    
+
     let success = HandshakeSuccess {
         user: "test-user".to_string(),
         peer: "127.0.0.1:12345".parse().unwrap(),
@@ -1534,7 +1598,8 @@ async fn adversarial_direct_relay_cutover_integrity() {
             runtime_clone.subscribe(),
             runtime_clone.snapshot(),
             0xABCD_1234,
-        ).await
+        )
+        .await
     });
 
     timeout(TokioDuration::from_secs(2), async {
@@ -1547,10 +1612,10 @@ async fn adversarial_direct_relay_cutover_integrity() {
     })
     .await
     .expect("direct relay session must start before cutover");
-    
+
     // Trigger cutover.
     route_runtime.set_mode(RelayRouteMode::Middle).unwrap();
-    
+
     // The session should terminate after the staggered delay (1000-2000ms).
     let result = timeout(TokioDuration::from_secs(5), session_task)
         .await
