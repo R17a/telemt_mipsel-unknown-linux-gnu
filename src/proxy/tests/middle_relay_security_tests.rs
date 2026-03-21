@@ -238,6 +238,11 @@ fn desync_dedup_cache_is_bounded() {
 
 #[test]
 fn quota_user_lock_cache_reuses_entry_for_same_user() {
+    let _guard = super::quota_user_lock_test_scope();
+
+    let map = QUOTA_USER_LOCKS.get_or_init(DashMap::new);
+    map.clear();
+
     let a = quota_user_lock("quota-user-a");
     let b = quota_user_lock("quota-user-a");
     assert!(Arc::ptr_eq(&a, &b), "same user must reuse same quota lock");
