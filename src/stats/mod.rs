@@ -2581,6 +2581,56 @@ mod tests {
     }
 
     #[test]
+    fn test_quota_reserve_200x_1k_reaches_100k_without_overshoot() {
+        let user_stats = Arc::new(UserStats::default());
+        let successes = Arc::new(AtomicU64::new(0));
+        let failures = Arc::new(AtomicU64::new(0));
+        let attempts = 200usize;
+        let reserve_bytes = 1_024u64;
+        let limit = 100 * 1_024u64;
+        let mut workers = Vec::with_capacity(attempts);
+
+        for _ in 0..attempts {
+            let user_stats = user_stats.clone();
+            let successes = successes.clone();
+            let failures = failures.clone();
+            workers.push(std::thread::spawn(move || {
+                loop {
+                    match user_stats.quota_try_reserve(reserve_bytes, limit) {
+                        Ok(_) => {
+                            successes.fetch_add(1, Ordering::Relaxed);
+                            return;
+                        }
+                        Err(QuotaReserveError::LimitExceeded) => {
+                            failures.fetch_add(1, Ordering::Relaxed);
+                            return;
+                        }
+                        Err(QuotaReserveError::Contended) => {
+                            std::hint::spin_loop();
+                        }
+                    }
+                }
+            }));
+        }
+
+        for worker in workers {
+            worker.join().expect("reservation worker must finish");
+        }
+
+        assert_eq!(
+            successes.load(Ordering::Relaxed),
+            100,
+            "exactly 100 reservations of 1 KiB must fit into a 100 KiB quota"
+        );
+        assert_eq!(
+            failures.load(Ordering::Relaxed),
+            100,
+            "remaining workers must fail once quota is fully reserved"
+        );
+        assert_eq!(user_stats.quota_used(), limit);
+    }
+
+    #[test]
     fn test_quota_used_is_authoritative_and_independent_from_octets_telemetry() {
         let stats = Stats::new();
         let user = "quota-authoritative-user";
@@ -2593,6 +2643,33 @@ mod tests {
         stats.quota_charge_post_write(&user_stats, 7);
         assert_eq!(stats.get_user_total_octets(user), 5);
         assert_eq!(stats.get_user_quota_used(user), 7);
+    }
+
+    #[test]
+    fn test_cached_handle_survives_map_cleanup_until_last_drop() {
+        let stats = Stats::new();
+        let user = "quota-handle-lifetime-user";
+        let user_stats = stats.get_or_create_user_stats_handle(user);
+        let weak = Arc::downgrade(&user_stats);
+
+        stats.user_stats.remove(user);
+        assert!(
+            stats.user_stats.get(user).is_none(),
+            "map cleanup should remove idle entry"
+        );
+        assert!(
+            weak.upgrade().is_some(),
+            "cached handle must keep user stats object alive after map removal"
+        );
+
+        stats.quota_charge_post_write(user_stats.as_ref(), 3);
+        assert_eq!(user_stats.quota_used(), 3);
+
+        drop(user_stats);
+        assert!(
+            weak.upgrade().is_none(),
+            "user stats object must be dropped after the last cached handle is released"
+        );
     }
 }
 
