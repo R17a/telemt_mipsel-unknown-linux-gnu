@@ -10,6 +10,7 @@ FROM debian:12-slim AS minimal
 RUN apt-get update && apt-get install -y --no-install-recommends \
     binutils \
     curl \
+    xz-utils \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
     \
