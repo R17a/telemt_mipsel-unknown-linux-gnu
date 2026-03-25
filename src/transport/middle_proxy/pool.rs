@@ -275,10 +275,20 @@ pub(super) struct ReinitCore {
     pub(super) hardswap: AtomicBool,
 }
 
+pub(super) struct WriterLifecycleCore {
+    pub(super) me_keepalive_enabled: bool,
+    pub(super) me_keepalive_interval: Duration,
+    pub(super) me_keepalive_jitter: Duration,
+    pub(super) me_keepalive_payload_random: bool,
+    pub(super) rpc_proxy_req_every_secs: AtomicU64,
+    pub(super) writer_cmd_channel_capacity: usize,
+}
+
 #[allow(dead_code)]
 pub struct MePool {
     pub(super) routing: Arc<RoutingCore>,
     pub(super) reinit: Arc<ReinitCore>,
+    pub(super) writer_lifecycle: Arc<WriterLifecycleCore>,
     pub(super) decision: NetworkDecision,
     pub(super) upstream: Option<Arc<UpstreamManager>>,
     pub(super) rng: Arc<SecureRandom>,
@@ -297,12 +307,6 @@ pub struct MePool {
     pub(super) stun_backoff_until: Arc<RwLock<Option<Instant>>>,
     pub(super) me_one_retry: u8,
     pub(super) me_one_timeout: Duration,
-    pub(super) me_keepalive_enabled: bool,
-    pub(super) me_keepalive_interval: Duration,
-    pub(super) me_keepalive_jitter: Duration,
-    pub(super) me_keepalive_payload_random: bool,
-    pub(super) rpc_proxy_req_every_secs: AtomicU64,
-    pub(super) writer_cmd_channel_capacity: usize,
     pub(super) me_warmup_stagger_enabled: bool,
     pub(super) me_warmup_step_delay: Duration,
     pub(super) me_warmup_step_jitter: Duration,
@@ -556,6 +560,14 @@ impl MePool {
                 pending_hardswap_map_hash: AtomicU64::new(0),
                 hardswap: AtomicBool::new(hardswap),
             }),
+            writer_lifecycle: Arc::new(WriterLifecycleCore {
+                me_keepalive_enabled,
+                me_keepalive_interval: Duration::from_secs(me_keepalive_interval_secs),
+                me_keepalive_jitter: Duration::from_secs(me_keepalive_jitter_secs),
+                me_keepalive_payload_random,
+                rpc_proxy_req_every_secs: AtomicU64::new(rpc_proxy_req_every_secs),
+                writer_cmd_channel_capacity: me_writer_cmd_channel_capacity.max(1),
+            }),
             decision,
             upstream,
             rng,
@@ -588,12 +600,6 @@ impl MePool {
             me_one_retry,
             me_one_timeout: Duration::from_millis(me_one_timeout_ms),
             stats,
-            me_keepalive_enabled,
-            me_keepalive_interval: Duration::from_secs(me_keepalive_interval_secs),
-            me_keepalive_jitter: Duration::from_secs(me_keepalive_jitter_secs),
-            me_keepalive_payload_random,
-            rpc_proxy_req_every_secs: AtomicU64::new(rpc_proxy_req_every_secs),
-            writer_cmd_channel_capacity: me_writer_cmd_channel_capacity.max(1),
             me_warmup_stagger_enabled,
             me_warmup_step_delay: Duration::from_millis(me_warmup_step_delay_ms),
             me_warmup_step_jitter: Duration::from_millis(me_warmup_step_jitter_ms),

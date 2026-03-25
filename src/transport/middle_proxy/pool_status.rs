@@ -558,11 +558,14 @@ impl MePool {
             adaptive_floor_warm_writers_current: self
                 .me_adaptive_floor_warm_writers_current
                 .load(Ordering::Relaxed),
-            me_keepalive_enabled: self.me_keepalive_enabled,
-            me_keepalive_interval_secs: self.me_keepalive_interval.as_secs(),
-            me_keepalive_jitter_secs: self.me_keepalive_jitter.as_secs(),
-            me_keepalive_payload_random: self.me_keepalive_payload_random,
-            rpc_proxy_req_every_secs: self.rpc_proxy_req_every_secs.load(Ordering::Relaxed),
+            me_keepalive_enabled: self.writer_lifecycle.me_keepalive_enabled,
+            me_keepalive_interval_secs: self.writer_lifecycle.me_keepalive_interval.as_secs(),
+            me_keepalive_jitter_secs: self.writer_lifecycle.me_keepalive_jitter.as_secs(),
+            me_keepalive_payload_random: self.writer_lifecycle.me_keepalive_payload_random,
+            rpc_proxy_req_every_secs: self
+                .writer_lifecycle
+                .rpc_proxy_req_every_secs
+                .load(Ordering::Relaxed),
             me_reconnect_max_concurrent_per_dc: self.me_reconnect_max_concurrent_per_dc,
             me_reconnect_backoff_base_ms: self.me_reconnect_backoff_base.as_millis() as u64,
             me_reconnect_backoff_cap_ms: self.me_reconnect_backoff_cap.as_millis() as u64,

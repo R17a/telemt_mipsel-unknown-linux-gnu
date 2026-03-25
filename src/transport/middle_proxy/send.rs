@@ -857,7 +857,7 @@ impl MePool {
             (self.writer_idle_rank_for_selection(writer, idle_since_by_writer, now_epoch_secs)
                 as u64)
                 * 100;
-        let queue_cap = self.writer_cmd_channel_capacity.max(1) as u64;
+        let queue_cap = self.writer_lifecycle.writer_cmd_channel_capacity.max(1) as u64;
         let queue_remaining = writer.tx.capacity() as u64;
         let queue_used = queue_cap.saturating_sub(queue_remaining.min(queue_cap));
         let queue_util_pct = queue_used.saturating_mul(100) / queue_cap;

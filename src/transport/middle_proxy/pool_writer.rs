@@ -365,7 +365,9 @@ impl MePool {
         let draining_started_at_epoch_secs = Arc::new(AtomicU64::new(0));
         let drain_deadline_epoch_secs = Arc::new(AtomicU64::new(0));
         let allow_drain_fallback = Arc::new(AtomicBool::new(false));
-        let (tx, rx) = mpsc::channel::<WriterCommand>(self.writer_cmd_channel_capacity);
+        let (tx, rx) = mpsc::channel::<WriterCommand>(
+            self.writer_lifecycle.writer_cmd_channel_capacity,
+        );
         let rpc_writer = RpcWriter {
             writer: hs.wr,
             key: hs.write_key,
@@ -414,11 +416,14 @@ impl MePool {
         let tx_reader = tx.clone();
         let tx_ping = tx.clone();
         let tx_signal = tx.clone();
-        let keepalive_enabled = self.me_keepalive_enabled;
-        let keepalive_interval = self.me_keepalive_interval;
-        let keepalive_jitter = self.me_keepalive_jitter;
-        let keepalive_jitter_signal = self.me_keepalive_jitter;
-        let rpc_proxy_req_every_secs = self.rpc_proxy_req_every_secs.load(Ordering::Relaxed);
+        let keepalive_enabled = self.writer_lifecycle.me_keepalive_enabled;
+        let keepalive_interval = self.writer_lifecycle.me_keepalive_interval;
+        let keepalive_jitter = self.writer_lifecycle.me_keepalive_jitter;
+        let keepalive_jitter_signal = self.writer_lifecycle.me_keepalive_jitter;
+        let rpc_proxy_req_every_secs = self
+            .writer_lifecycle
+            .rpc_proxy_req_every_secs
+            .load(Ordering::Relaxed);
         let cancel_reader = cancel.clone();
         let cancel_writer = cancel.clone();
         let cancel_ping = cancel.clone();
