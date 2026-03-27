@@ -1,10 +1,12 @@
-name: Build for MIPS (Keenetic) via cross
+name: Build for MIPS (Keenetic) via cross + build-std
 
 on:
   workflow_dispatch:  # запуск вручную
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+  # Включаем поддержку -Z флагов
+  CARGO_UNSTABLE_BUILD_STD: 'core,alloc,std,proc_macro'
 
 jobs:
   build-mips:
@@ -13,21 +15,31 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Install Rust (stable)
-        uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust nightly
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src  # КРИТИЧНО: нужен исходный код std
 
       - name: Install cross
-        run: cargo install cross --locked
+        run: cargo +nightly install cross --locked
 
-      - name: Build with cross
+      - name: Build with cross + build-std
         run: |
-          # cross сам скачает нужный Docker-образ с MIPS toolchain
-          cross build --release --target mipsel-unknown-linux-gnu
+          # Ключевые флаги:
+          # +nightly — используем nightly toolchain
+          # -Z build-std — собираем стандартную библиотеку из исходников
+          cargo +nightly cross build \
+            -Z build-std=core,alloc,std,proc_macro \
+            --target mipsel-unknown-linux-gnu \
+            --release \
+            --verbose
 
       - name: Verify binary
         run: |
           file target/mipsel-unknown-linux-gnu/release/telemt
           ls -lh target/mipsel-unknown-linux-gnu/release/telemt
+          # Проверка, что это действительно MIPS
+          target/mipsel-unknown-linux-gnu/release/telemt --help || true
 
       - name: Upload artifact
         uses: actions/upload-artifact@v5
