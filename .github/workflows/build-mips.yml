@@ -1,4 +1,3 @@
-# .github/workflows/build-mips.yml
 name: Build for MIPS (Keenetic)
 
 on:
@@ -25,22 +24,26 @@ jobs:
       - name: Install cross
         run: cargo install cross --locked --force
 
-      - name: Increase swap space (for build-std)
+      - name: Increase swap space
         run: |
           if [ $(swapon --show | wc -l) -eq 0 ]; then
-            echo "Creating 4G swap file with dd..."
             sudo dd if=/dev/zero of=/swapfile bs=1M count=4096 status=progress
             sudo chmod 600 /swapfile
             sudo mkswap /swapfile
             sudo swapon /swapfile
-          else
-            echo "Swap already active"
-            swapon --show
           fi
           free -h
         continue-on-error: true
 
-      - name: Build telemt with cross + build-std
+      # 🔧 НОВЫЙ ШАГ: Применяем патч для MIPS
+      - name: Apply MIPS atomic patch
+        run: |
+          # Заменяем AtomicU64 на AtomicU32 во всех файлах
+          find src -name "*.rs" -type f -exec sed -i 's/AtomicU64/AtomicU32/g' {} \;
+          echo "Patch applied successfully"
+          grep -r "AtomicU32" src/ | head -5
+
+      - name: Build with cross + build-std
         run: |
           cross +nightly build \
             -Z build-std=core,alloc,std,proc_macro \
