@@ -1,6 +1,4 @@
 # .github/workflows/build-mips.yml
-# Сборка telemt для Keenetic Viva (MIPS, mipsel-unknown-linux-gnu)
-
 name: Build for MIPS (Keenetic)
 
 on:
@@ -24,7 +22,6 @@ jobs:
         with:
           components: rust-src
 
-      # 🔧 ИСПРАВЛЕНО: устанавливаем cross как отдельный бинарник
       - name: Install cross
         run: cargo install cross --locked --force
 
@@ -43,7 +40,7 @@ jobs:
           free -h
         continue-on-error: true
 
-      # 🔧 ИСПРАВЛЕНО: cross вызывается напрямую, а не через cargo
+      # 🔧 ИСПРАВЛЕНО: компоненты build-std передаются в команде, а не в Cross.toml
       - name: Build telemt with cross + build-std
         run: |
           cross +nightly build \
