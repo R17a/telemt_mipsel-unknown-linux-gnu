@@ -1,0 +1,37 @@
+name: Build for MIPS (Keenetic) via cross
+
+on:
+  workflow_dispatch:  # запуск вручную
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  build-mips:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cross
+        run: cargo install cross --locked
+
+      - name: Build with cross
+        run: |
+          # cross сам скачает нужный Docker-образ с MIPS toolchain
+          cross build --release --target mipsel-unknown-linux-gnu
+
+      - name: Verify binary
+        run: |
+          file target/mipsel-unknown-linux-gnu/release/telemt
+          ls -lh target/mipsel-unknown-linux-gnu/release/telemt
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: telemt-mipsel-keenetic
+          path: target/mipsel-unknown-linux-gnu/release/telemt
+          retention-days: 7
