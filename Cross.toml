@@ -1,22 +1,16 @@
-# Cross.toml — конфигурация кросс-компиляции для MIPS (Keenetic Viva)
-# Документация: https://github.com/cross-rs/cross
-
-# Настройки для целевой платформы mipsel-unknown-linux-gnu
 [target.mipsel-unknown-linux-gnu]
-
-# Включаем сборку стандартной библиотеки из исходников
 build-std = true
 
-# 🔧 ИСПРАВЛЕНО: image — простая строка, не отдельная таблица
-image = "ghcr.io/cross-rs/mipsel-unknown-linux-gnu:main"
-
-# Команды для установки зависимостей внутри Docker-контейнера
-pre-build = [
-    "apt-get update && apt-get install -y pkg-config libssl-dev musl-tools"
-]
-
-# Передаём флаги компиляции для оптимизации под роутер
 [target.mipsel-unknown-linux-gnu.env]
+# 🔧 УБРАЛИ -C panic=abort — он вызывает проблемы с panic_abort crate
 passthrough = [
-    "RUSTFLAGS=-C linker-plugin-lto -C opt-level=z -C strip=symbols -C panic=abort"
+    "RUSTFLAGS=-C linker-plugin-lto -C opt-level=z -C strip=symbols"
 ]
+
+[target.mipsel-unknown-linux-gnu.image]
+name = "ghcr.io/cross-rs/mipsel-unknown-linux-gnu:main"
+
+[target.mipsel-unknown-linux-gnu.pre-build]
+script = """
+apt-get update && apt-get install -y pkg-config libssl-dev musl-tools
+"""
