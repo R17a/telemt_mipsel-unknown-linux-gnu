@@ -1,56 +1,86 @@
+# .github/workflows/build-mips.yml
+# Сборка telemt для Keenetic Viva (MIPS, mipsel-unknown-linux-gnu)
+# Запускается вручную через вкладку Actions
+
 name: Build for MIPS (Keenetic)
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:  # ручной запуск
 
 env:
+  # Подавляем предупреждение о Node.js 20 (временное решение)
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
   build-mips:
     name: Build telemt for mipsel-unknown-linux-gnu
     runs-on: ubuntu-22.04
-    timeout-minutes: 60
+    timeout-minutes: 60  # сборка с build-std может занять до 40 минут
 
     steps:
+      # 1. Клонируем репозиторий
       - name: Checkout repository
         uses: actions/checkout@v5
 
+      # 2. Устанавливаем nightly toolchain + rust-src (исходники std)
       - name: Install Rust nightly with rust-src
         uses: dtolnay/rust-toolchain@nightly
         with:
           components: rust-src
 
+      # 3. Устанавливаем cross (утилита для кросс-компиляции через Docker)
       - name: Install cross
         run: cargo +nightly install cross --locked --force
 
-      - name: Increase swap space
+      # 4. (Опционально) Увеличиваем swap для сборки больших зависимостей
+      - name: Increase swap space (for build-std)
         run: |
           if [ $(swapon --show | wc -l) -eq 0 ]; then
+            echo "Creating 4G swap file with dd..."
             sudo dd if=/dev/zero of=/swapfile bs=1M count=4096 status=progress
             sudo chmod 600 /swapfile
             sudo mkswap /swapfile
             sudo swapon /swapfile
+          else
+            echo "Swap already active"
+            swapon --show
           fi
           free -h
         continue-on-error: true
 
-      # 🔧 ПАТЧ: Заменяем AtomicU64 → AtomicU32 (MIPS32 не поддерживает 64-битные атомики)
+      # 🔧 5. ПАТЧ: Заменяем AtomicU64 → AtomicU32 (MIPS32 не поддерживает 64-битные атомики)
       - name: Apply MIPS atomic patch
         run: |
-          echo "Patching AtomicU64 -> AtomicU32..."
+          echo "=== Applying AtomicU64 -> AtomicU32 patch for MIPS32 ==="
+          
+          # Заменяем все вхождения AtomicU64 на AtomicU32 в исходных файлах
           find src -name "*.rs" -type f -exec sed -i 's/AtomicU64/AtomicU32/g' {} \;
-          echo "Verification:"
-          grep -r "AtomicU32" src/ | head -5
+          
+          # Проверяем, что замены применились
+          echo "=== Verification: checking for AtomicU32 ==="
+          grep -r "AtomicU32" src/ | head -10 || echo "⚠️ No AtomicU32 found!"
+          
+          # Убеждаемся, что AtomicU64 больше нет
+          if grep -r "AtomicU64" src/; then
+            echo "❌ ERROR: AtomicU64 still found in source!"
+            exit 1
+          else
+            echo "✅ All AtomicU64 successfully replaced with AtomicU32"
+          fi
 
-      - name: Build with cross + build-std
+      # 6. Сборка проекта через cross + build-std
+      - name: Build telemt with cross + build-std
         run: |
-          cross +nightly build \
+          # Ключевые флаги:
+          # +nightly — используем nightly toolchain
+          # -Z build-std — собираем стандартную библиотеку из исходников
+          cargo +nightly cross build \
             -Z build-std=core,alloc,std,proc_macro \
             --target mipsel-unknown-linux-gnu \
             --release \
             --verbose
 
+      # 7. Проверка собранного бинарника
       - name: Verify binary
         run: |
           echo "=== Binary info ==="
@@ -58,12 +88,15 @@ jobs:
           echo ""
           echo "=== Binary size ==="
           ls -lh target/mipsel-unknown-linux-gnu/release/telemt
+          echo ""
+          echo "=== Test run (may fail without config, that's OK) ==="
           target/mipsel-unknown-linux-gnu/release/telemt --help || true
 
+      # 8. Загрузка артефакта для скачивания
       - name: Upload artifact
         uses: actions/upload-artifact@v5
         with:
           name: telemt-mipsel-keenetic
           path: target/mipsel-unknown-linux-gnu/release/telemt
           retention-days: 7
-          compression-level: 0
+          compression-level: 0  # бинарник уже сжат, не компрессировать повторно
