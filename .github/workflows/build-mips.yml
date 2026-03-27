@@ -1,15 +1,13 @@
 # .github/workflows/build-mips.yml
 # Сборка telemt для Keenetic Viva (MIPS, mipsel-unknown-linux-gnu)
-# Запускается вручную через вкладку Actions
 
 name: Build for MIPS (Keenetic)
 
 on:
-  workflow_dispatch:  # ручной запуск
+  workflow_dispatch:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
-  CARGO_UNSTABLE_BUILD_STD: 'core,alloc,std,proc_macro'
 
 jobs:
   build-mips:
@@ -26,13 +24,12 @@ jobs:
         with:
           components: rust-src
 
+      # 🔧 ИСПРАВЛЕНО: устанавливаем cross как отдельный бинарник
       - name: Install cross
-        run: cargo +nightly install cross --locked --force
+        run: cargo install cross --locked --force
 
-      # 🔧 ИСПРАВЛЕННЫЙ ШАГ: создание swap через dd (совместимо с GitHub Actions)
       - name: Increase swap space (for build-std)
         run: |
-          # Проверяем, есть ли уже swap
           if [ $(swapon --show | wc -l) -eq 0 ]; then
             echo "Creating 4G swap file with dd..."
             sudo dd if=/dev/zero of=/swapfile bs=1M count=4096 status=progress
@@ -40,15 +37,16 @@ jobs:
             sudo mkswap /swapfile
             sudo swapon /swapfile
           else
-            echo "Swap already active, skipping creation"
+            echo "Swap already active"
             swapon --show
           fi
           free -h
-        continue-on-error: true  # если не получится — пробуем собрать без доп. swap
+        continue-on-error: true
 
+      # 🔧 ИСПРАВЛЕНО: cross вызывается напрямую, а не через cargo
       - name: Build telemt with cross + build-std
         run: |
-          cargo +nightly cross build \
+          cross +nightly build \
             -Z build-std=core,alloc,std,proc_macro \
             --target mipsel-unknown-linux-gnu \
             --release \
@@ -61,8 +59,6 @@ jobs:
           echo ""
           echo "=== Binary size ==="
           ls -lh target/mipsel-unknown-linux-gnu/release/telemt
-          echo ""
-          echo "=== Test run (may fail without config, that's OK) ==="
           target/mipsel-unknown-linux-gnu/release/telemt --help || true
 
       - name: Upload artifact
