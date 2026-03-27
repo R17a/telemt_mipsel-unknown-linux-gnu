@@ -6,6 +6,21 @@ edition = "2024"
 [features]
 redteam_offline_expected_fail = []
 
+[target.mipsel-unknown-linux-gnu]
+# Используем nightly для поддержки -Z build-std
+build-std = ["core", "alloc", "std", "proc_macro"]
+
+# Оптимизации для уменьшения размера бинарника (важно для роутера!)
+[target.mipsel-unknown-linux-gnu.env]
+passthrough = [
+    "RUSTFLAGS=-C linker-plugin-lto -C opt-level=z -C strip=symbols"
+]
+
+# Если нужны системные зависимости (openssl и т.п.)
+pre-build = [
+    "apt-get update && apt-get install -y pkg-config libssl-dev"
+]
+
 [dependencies]
 # C
 libc = "0.2"
