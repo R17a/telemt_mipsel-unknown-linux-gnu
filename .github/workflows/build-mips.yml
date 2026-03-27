@@ -6,47 +6,46 @@ name: Build for MIPS (Keenetic)
 
 on:
   workflow_dispatch:  # ручной запуск
-  # Можно добавить автоматический запуск при пуше в ветку:
-  # push:
-  #   branches: [ "main", "mips-build" ]
 
 env:
-  # Подавляем предупреждение о Node.js 20 (временное решение до июня 2026)
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
-  # Включаем нестабильные флаги для build-std
   CARGO_UNSTABLE_BUILD_STD: 'core,alloc,std,proc_macro'
 
 jobs:
   build-mips:
     name: Build telemt for mipsel-unknown-linux-gnu
     runs-on: ubuntu-22.04
-    timeout-minutes: 60  # сборка с build-std может занять до 40 минут
+    timeout-minutes: 60
 
     steps:
-      # 1. Клонируем репозиторий
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      # 2. Устанавливаем nightly toolchain + rust-src (исходники std)
       - name: Install Rust nightly with rust-src
         uses: dtolnay/rust-toolchain@nightly
         with:
           components: rust-src
 
-      # 3. Устанавливаем cross (утилита для кросс-компиляции через Docker)
       - name: Install cross
         run: cargo +nightly install cross --locked --force
 
-      # 4. (Опционально) Увеличиваем swap для сборки больших зависимостей
+      # 🔧 ИСПРАВЛЕННЫЙ ШАГ: создание swap через dd (совместимо с GitHub Actions)
       - name: Increase swap space (for build-std)
         run: |
-          sudo fallocate -l 4G /swapfile
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
+          # Проверяем, есть ли уже swap
+          if [ $(swapon --show | wc -l) -eq 0 ]; then
+            echo "Creating 4G swap file with dd..."
+            sudo dd if=/dev/zero of=/swapfile bs=1M count=4096 status=progress
+            sudo chmod 600 /swapfile
+            sudo mkswap /swapfile
+            sudo swapon /swapfile
+          else
+            echo "Swap already active, skipping creation"
+            swapon --show
+          fi
           free -h
+        continue-on-error: true  # если не получится — пробуем собрать без доп. swap
 
-      # 5. Сборка проекта через cross + build-std
       - name: Build telemt with cross + build-std
         run: |
           cargo +nightly cross build \
@@ -55,7 +54,6 @@ jobs:
             --release \
             --verbose
 
-      # 6. Проверка собранного бинарника
       - name: Verify binary
         run: |
           echo "=== Binary info ==="
@@ -67,35 +65,10 @@ jobs:
           echo "=== Test run (may fail without config, that's OK) ==="
           target/mipsel-unknown-linux-gnu/release/telemt --help || true
 
-      # 7. Загрузка артефакта для скачивания
       - name: Upload artifact
         uses: actions/upload-artifact@v5
         with:
           name: telemt-mipsel-keenetic
           path: target/mipsel-unknown-linux-gnu/release/telemt
           retention-days: 7
-          compression-level: 0  # бинарник уже сжат, не компрессировать повторно
-
-      # 8. (Опционально) Создание GitHub Release с артефактом
-      - name: Create GitHub Release
-        if: github.ref == 'refs/heads/main'
-        uses: softprops/action-gh-release@v2
-        with:
-          name: "telemt for MIPS (Keenetic) - ${{ github.run_number }}"
-          tag_name: "mips-${{ github.run_number }}"
-          files: target/mipsel-unknown-linux-gnu/release/telemt
-          body: |
-            Pre-built binary for Keenetic routers (MIPS, mipsel-unknown-linux-gnu)
-            
-            Device: Keenetic Viva (KN-1910), MT7621A
-            Built with: Rust nightly + cross + build-std
-            Optimized: -C opt-level=z -C strip=symbols
-            
-            Usage:
-            1. Download and copy to /opt/bin/telemt on your router
-            2. chmod +x /opt/bin/telemt
-            3. Run: /opt/bin/telemt -c /opt/etc/telemt/config.toml
-          draft: true
-          prerelease: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          compression-level: 0
