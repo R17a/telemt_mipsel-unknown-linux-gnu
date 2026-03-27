@@ -40,7 +40,6 @@ jobs:
           free -h
         continue-on-error: true
 
-      # 🔧 ИСПРАВЛЕНО: компоненты build-std передаются в команде, а не в Cross.toml
       - name: Build telemt with cross + build-std
         run: |
           cross +nightly build \
