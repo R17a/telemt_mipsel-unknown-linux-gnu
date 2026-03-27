@@ -1,0 +1,25 @@
+# Cross.toml — конфигурация кросс-компиляции для MIPS (Keenetic Viva)
+# Документация: https://github.com/cross-rs/cross
+
+# Настройки для целевой платформы mipsel-unknown-linux-gnu
+[target.mipsel-unknown-linux-gnu]
+
+# Собираем стандартную библиотеку из исходников (обязательно для Tier 3)
+build-std = ["core", "alloc", "std", "proc_macro"]
+
+# Передаём флаги компиляции для оптимизации под роутер
+[target.mipsel-unknown-linux-gnu.env]
+passthrough = [
+    "RUSTFLAGS=-C linker-plugin-lto -C opt-level=z -C strip=symbols -C panic=abort"
+]
+
+# Установка системных зависимостей внутри Docker-контейнера cross
+[target.mipsel-unknown-linux-gnu.image]
+# Используем образ с поддержкой сборки из исходников
+name = "ghcr.io/cross-rs/mipsel-unknown-linux-gnu:main"
+
+[target.mipsel-unknown-linux-gnu.pre-build]
+# Устанавливаем pkg-config и libssl для openssl-sys
+script = """
+apt-get update && apt-get install -y pkg-config libssl-dev musl-tools
+"""
