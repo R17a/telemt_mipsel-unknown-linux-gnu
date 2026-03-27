@@ -8,14 +8,14 @@ on:
   workflow_dispatch:  # ручной запуск
 
 env:
-  # Подавляем предупреждение о Node.js 20 (временное решение)
+  # Подавляем предупреждение о Node.js 20
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
   build-mips:
     name: Build telemt for mipsel-unknown-linux-gnu
     runs-on: ubuntu-22.04
-    timeout-minutes: 60  # сборка с build-std может занять до 40 минут
+    timeout-minutes: 60
 
     steps:
       # 1. Клонируем репозиторий
@@ -28,7 +28,7 @@ jobs:
         with:
           components: rust-src
 
-      # 3. Устанавливаем cross (утилита для кросс-компиляции через Docker)
+      # 3. Устанавливаем cross как ОТДЕЛЬНЫЙ бинарник (не подкоманда cargo!)
       - name: Install cross
         run: cargo +nightly install cross --locked --force
 
@@ -53,14 +53,11 @@ jobs:
         run: |
           echo "=== Applying AtomicU64 -> AtomicU32 patch for MIPS32 ==="
           
-          # Заменяем все вхождения AtomicU64 на AtomicU32 в исходных файлах
+          # Заменяем ВСЕ вхождения AtomicU64 на AtomicU32 в исходных файлах
           find src -name "*.rs" -type f -exec sed -i 's/AtomicU64/AtomicU32/g' {} \;
           
-          # Проверяем, что замены применились
-          echo "=== Verification: checking for AtomicU32 ==="
-          grep -r "AtomicU32" src/ | head -10 || echo "⚠️ No AtomicU32 found!"
-          
-          # Убеждаемся, что AtomicU64 больше нет
+          # Проверяем результат
+          echo "=== Verification ==="
           if grep -r "AtomicU64" src/; then
             echo "❌ ERROR: AtomicU64 still found in source!"
             exit 1
@@ -68,13 +65,11 @@ jobs:
             echo "✅ All AtomicU64 successfully replaced with AtomicU32"
           fi
 
-      # 6. Сборка проекта через cross + build-std
+      # 🔧 6. Сборка проекта — cross вызывается НАПРЯМУЮ, не через cargo!
       - name: Build telemt with cross + build-std
         run: |
-          # Ключевые флаги:
-          # +nightly — используем nightly toolchain
-          # -Z build-std — собираем стандартную библиотеку из исходников
-          cargo +nightly cross build \
+          # ✅ ПРАВИЛЬНЫЙ СИНТАКСИС: cross +nightly build (не cargo +nightly cross build!)
+          cross +nightly build \
             -Z build-std=core,alloc,std,proc_macro \
             --target mipsel-unknown-linux-gnu \
             --release \
@@ -99,4 +94,4 @@ jobs:
           name: telemt-mipsel-keenetic
           path: target/mipsel-unknown-linux-gnu/release/telemt
           retention-days: 7
-          compression-level: 0  # бинарник уже сжат, не компрессировать повторно
+          compression-level: 0
