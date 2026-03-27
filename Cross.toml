@@ -4,22 +4,19 @@
 # Настройки для целевой платформы mipsel-unknown-linux-gnu
 [target.mipsel-unknown-linux-gnu]
 
-# 🔧 ИСПРАВЛЕНО: build-std — булево значение (true), а не массив
-# Конкретные компоненты указываются в командной строке: -Z build-std=core,alloc,...
+# Включаем сборку стандартной библиотеки из исходников
 build-std = true
+
+# 🔧 ИСПРАВЛЕНО: image — простая строка, не отдельная таблица
+image = "ghcr.io/cross-rs/mipsel-unknown-linux-gnu:main"
+
+# Команды для установки зависимостей внутри Docker-контейнера
+pre-build = [
+    "apt-get update && apt-get install -y pkg-config libssl-dev musl-tools"
+]
 
 # Передаём флаги компиляции для оптимизации под роутер
 [target.mipsel-unknown-linux-gnu.env]
 passthrough = [
     "RUSTFLAGS=-C linker-plugin-lto -C opt-level=z -C strip=symbols -C panic=abort"
-]
-
-# Образ Docker для кросс-компиляции
-[target.mipsel-unknown-linux-gnu.image]
-name = "ghcr.io/cross-rs/mipsel-unknown-linux-gnu:main"
-
-# 🔧 ИСПРАВЛЕНО: pre-build — массив строк (команд), а не блок со script
-[target.mipsel-unknown-linux-gnu]
-pre-build = [
-    "apt-get update && apt-get install -y pkg-config libssl-dev musl-tools"
 ]
